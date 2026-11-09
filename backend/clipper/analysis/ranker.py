@@ -100,6 +100,7 @@ def compute_subscores(*, sentences: list[Sentence], words: list[Word], emotion, 
     ev_strength = {t: max([e.strength for e in emotion.events if e.type == t], default=0) for t in set(ev_types)} if emotion else {}
     chat_emo = (chat.emotions if chat and chat.messages else {}) or {}
     burst = max(0.0, (chat.burst_z if chat and chat.messages else 0.0))
+    has_chat = bool(chat and chat.messages)
 
     # 1. hook ---------------------------------------------------------------------
     hook_s = hook.score if hook else 0.0
@@ -165,6 +166,13 @@ def compute_subscores(*, sentences: list[Sentence], words: list[Word], emotion, 
         share += 0.15
     if chat and chat.messages and burst > 2.5:
         reasons.append(f"el chat reaccionó (×{burst:.1f})")
+
+    if not has_chat:
+        # VOD / archivo / chat deshabilitado: compensa las señales que normalmente se nutren del
+        # chat en vivo, para que un buen momento no quede penalizado solo por no tener chat.
+        ent_raw *= 1.2
+        emo *= 1.12
+        share *= 1.22
 
     subs = {
         "hook": hook_s,

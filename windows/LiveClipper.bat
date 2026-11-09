@@ -5,6 +5,7 @@ set "LC_SELF=%~f0"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=[IO.File]::ReadAllText($env:LC_SELF); $m='#'+'#PS1#'+'#'; Invoke-Expression ($s.Substring($s.IndexOf($m)+$m.Length))"
 exit /b
 ##PS1##
+
 # Live Clipper - archivo unico: instala o actualiza, arranca la app y (opcional) levanta el tunel.
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
@@ -75,6 +76,9 @@ function Build-And-Install([string]$backend, [string]$venvPy) {
     Say 'Compilando la interfaz...'
     Push-Location (Join-Path $Dest 'frontend')
     try { npm install --no-audit --no-fund; Assert-Exit 'npm install'; npm run build; Assert-Exit 'La compilacion de la interfaz' } finally { Pop-Location }
+    # record which commit the compiled UI was built from, so a stale dist forces a rebuild next time
+    $sha = ([string](git -C $Dest rev-parse HEAD 2>$null)).Trim()
+    if ($sha) { Set-Content -Path (Join-Path $Dest 'frontend\dist\.built') -Value $sha -Encoding ASCII }
     if (-not (Test-Path $venvPy)) { Say 'Creando el entorno de Python...'; & $script:Py -m venv (Join-Path $backend '.venv'); Assert-Exit 'La creacion del entorno' }
     Say 'Instalando dependencias de Python...'
     & $venvPy -m pip install --upgrade pip --disable-pip-version-check
@@ -143,12 +147,23 @@ function Ensure-Installed {
         if (-not $target) { $target = 'AI-Live-Clipper' }
         $local  = ([string](git -C $Dest rev-parse HEAD 2>$null)).Trim()
         $remote = ([string](git -C $Dest rev-parse "origin/$target" 2>$null)).Trim()
-        if ($local -eq $remote -and (Test-Path $distIdx) -and (Test-Path $venvPy)) {
+        $builtFile = Join-Path $Dest 'frontend\dist\.built'
+        $built = ''
+        if (Test-Path $builtFile) { $built = ([string](Get-Content $builtFile -Raw)).Trim() }
+        if ($local -eq $remote -and (Test-Path $distIdx) -and (Test-Path $venvPy) -and $built -eq $remote) {
             Ok 'Ya tienes la ultima version.'
         } else {
             $cur = ([string](git -C $Dest rev-parse --abbrev-ref HEAD)).Trim()
             if ($target -and $cur -ne $target) { Say "Cambiando a la rama $target..."; git -C $Dest checkout $target; Assert-Exit "checkout $target" }
             git -C $Dest pull --ff-only; Assert-Exit 'La actualizacion del codigo'
+            # self-update the .bat the user runs (header is identical across versions, safe to overwrite)
+            try {
+                $repoBat = Join-Path $Dest 'windows\LiveClipper.bat'
+                if ((Test-Path $repoBat) -and $env:LC_SELF -and (Test-Path $env:LC_SELF) -and ((Get-FileHash $repoBat).Hash -ne (Get-FileHash $env:LC_SELF).Hash)) {
+                    Copy-Item $repoBat $env:LC_SELF -Force
+                    Ok 'Instalador actualizado: tu .bat se actualizo solo (el proximo arranque usa la version nueva).'
+                }
+            } catch { }
             Build-And-Install $backend $venvPy
         }
     } elseif (Test-Path $Dest) {
@@ -181,6 +196,11 @@ function Ensure-Installed {
 function Open-App([string]$url) {
     # Abre en una ventana dedicada (Chrome/Edge --app): se ve como app de escritorio, sin barra del navegador.
     $exes = @()
+    foreach ($n in @('chrome.exe', 'msedge.exe')) {
+        foreach ($h in @('HKLM:', 'HKCU:')) {
+            try { $p = (Get-ItemProperty "$h\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\$n" -ErrorAction Stop).'(default)'; if ($p -and (Test-Path $p)) { $exes += $p } } catch { }
+        }
+    }
     if ($env:ProgramFiles) { $exes += (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe') }
     $px86 = ${env:ProgramFiles(x86)}
     if ($px86) { $exes += (Join-Path $px86 'Google\Chrome\Application\chrome.exe') }
