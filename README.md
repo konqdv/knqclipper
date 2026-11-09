@@ -31,21 +31,17 @@ Documentación técnica:
 
 ## Acceso desde tu subdominio (opcional, gratis)
 
-Para usar la app desde el móvil o cualquier sitio en `https://clipper.tudominio` —y poder publicar en Instagram, que exige URL pública— sin alquilar un servidor: expón tu PC con un **Cloudflare Tunnel**. Guía paso a paso en [`deploy/cloudflare/README.md`](deploy/cloudflare/README.md); en Windows se levanta con `windows/Tunel-LiveClipper.bat`.
+Para usar la app desde el móvil o cualquier sitio en `https://clipper.tudominio` —y poder publicar en Instagram, que exige URL pública— sin alquilar un servidor: expón tu PC con un **Cloudflare Tunnel**. Guía paso a paso en [`deploy/cloudflare/README.md`](deploy/cloudflare/README.md); en Windows lo levanta el mismo `windows/LiveClipper.bat` (te lo pregunta al final).
 
-## Windows: instalación con un clic
+## Windows: un solo archivo
 
-1. Descarga [`windows/Instalar-LiveClipper.bat`](windows/Instalar-LiveClipper.bat) (botón «Download raw file»).
+1. Descarga [`windows/LiveClipper.bat`](windows/LiveClipper.bat) (botón «Download raw file»).
 2. Haz doble clic. Si Windows muestra «Windows protegió tu PC», pulsa **Más información → Ejecutar de todas formas**.
-3. El instalador:
-   - instala lo que falte con `winget` (Git, Python 3.12, Node.js LTS y FFmpeg);
-   - descarga el código en `%USERPROFILE%\knqclipper`;
-   - compila la interfaz e instala las dependencias;
-   - descarga el modelo de voz;
-   - crea el acceso directo **Live Clipper** en el escritorio.
-4. Al terminar se abre `http://localhost:8000`. Las siguientes veces basta con el acceso directo; para apagar la app, cierra su ventana.
+3. Ese único archivo: instala lo que falte (Git, Python, Node, FFmpeg con `winget`), descarga o **actualiza** el código, compila la interfaz, prepara el entorno, arranca la app y abre el navegador. Al final te pregunta si quieres levantar el **túnel de Cloudflare**.
+4. Crea el acceso directo **Live Clipper** en el escritorio; a partir de ahí, un doble clic actualiza (si hay cambios) y arranca. Antes de actualizar, cierra la app si la tienes abierta.
 
-Volver a ejecutar el instalador actualiza el código. El registro queda en `%TEMP%\knqclipper-install.log`.
+Registro en `%TEMP%` → `knqclipper.log`.
+
 
 ## Instalación y arranque
 
