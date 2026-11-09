@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Info, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Search, Upload } from "lucide-react";
 import { useState } from "react";
-import { api } from "../lib/api";
+import { api, uploadWithProgress } from "../lib/api";
 import type { Capabilities, Channel, LiveState } from "../lib/types";
 import { Field, Modal, PlatformBadge, Spinner } from "./ui";
 
@@ -17,6 +17,16 @@ export default function AddStreamModal({ open, onClose }: { open: boolean; onClo
   const [rights, setRights] = useState(false);
   const [cfg, setCfg] = useState({ mode: "review", min_score: 75, sensitivity: 0.5, buffer_seconds: 120, pre_seconds: 45, post_seconds: 12, chat_enabled: true, realtime: true });
   const resolve = useMutation({ mutationFn: (u: string) => api.post<Resolved>("/api/channels/resolve", { url: u }) });
+  const [progress, setProgress] = useState<number | null>(null);
+  const upload = useMutation({
+    mutationFn: (f: File) => uploadWithProgress<{ path: string; name: string }>("/api/uploads", f, setProgress),
+    onSuccess: (r) => {
+      setProgress(null);
+      setUrl(r.path);
+      resolve.mutate(r.path);
+    },
+    onError: () => setProgress(null),
+  });
   const add = useMutation({
     mutationFn: () => api.post<Channel>("/api/channels", { url, rights_confirmed: rights, start: true, config: cfg }),
     onSuccess: () => {
@@ -40,6 +50,21 @@ export default function AddStreamModal({ open, onClose }: { open: boolean; onClo
             {resolve.isPending ? <Spinner /> : <Search size={16} />} Comprobar
           </button>
         </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-ink-3">
+          <span>¿Sin directo a mano? Prueba con un vídeo tuyo:</span>
+          <label className={`btn cursor-pointer ${upload.isPending ? "pointer-events-none opacity-60" : ""}`}>
+            <Upload size={15} /> Subir vídeo
+            <input type="file" accept="video/*,.mkv,.ts,.flv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload.mutate(f); e.target.value = ""; }} />
+          </label>
+          {progress !== null && (
+            <div className="flex min-w-48 flex-1 items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-series-1-track"><div className="h-full rounded-full bg-accent" style={{ width: `${progress * 100}%` }} /></div>
+              <span className="tabular">{Math.round(progress * 100)}%</span>
+            </div>
+          )}
+          <span>Se procesa con el mismo pipeline que un directo.</span>
+        </div>
+        {upload.error && <div className="rounded-lg bg-rose-500/10 p-3 text-sm text-rose-200 ring-1 ring-rose-500/30">{(upload.error as Error).message}</div>}
         {resolve.error && <div className="rounded-lg bg-rose-500/10 p-3 text-sm text-rose-200 ring-1 ring-rose-500/30">{(resolve.error as Error).message}</div>}
 
         {r && (

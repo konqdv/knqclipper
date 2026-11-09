@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import re
+import uuid
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 
 from clipper.api.serializers import channel_out
 from clipper.connectors.base import ConnectorContext
+from clipper.connectors.local import VIDEO_EXT
 from clipper.connectors.registry import capabilities, make_connector, parse_source
 from clipper.core.appsettings import CHANNEL_DEFAULTS, deep_merge
 from clipper.core.config import get_settings
 from clipper.db.models import Channel, StreamSession
 from clipper.db.session import session_scope
+from clipper.storage.manager import get_storage
 from clipper.stream.manager import get_manager
 
 router = APIRouter(prefix="/api", tags=["streams"])
@@ -40,6 +45,27 @@ class ChannelPatch(BaseModel):
 @router.get("/platforms")
 async def platforms() -> dict[str, Any]:
     return {"capabilities": capabilities(), "channel_defaults": CHANNEL_DEFAULTS}
+
+
+@router.post("/uploads", status_code=201)
+async def upload_source(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Upload a video from the browser so it can be processed as a local source (when the server is remote)."""
+    name = Path(file.filename or "video.mp4").name
+    ext = Path(name).suffix.lower()
+    if ext not in VIDEO_EXT:
+        raise HTTPException(422, f"formato no soportado ({ext or 'sin extensión'}); usa {', '.join(sorted(VIDEO_EXT))}")
+    safe = re.sub(r"[^\w.\- ]+", "_", Path(name).stem).strip(" ._")[:80] or "video"
+    dest = get_storage().upload_path(uuid.uuid4().hex[:12]) / f"{safe}{ext}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    size = 0
+    with dest.open("wb") as fh:
+        while chunk := await file.read(1 << 20):
+            fh.write(chunk)
+            size += len(chunk)
+    if size == 0:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(422, "archivo vacío")
+    return {"path": str(dest), "name": name, "size": size}
 
 
 @router.post("/channels/resolve")

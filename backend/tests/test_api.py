@@ -57,6 +57,12 @@ def test_api_end_to_end_without_network(client, tts_video):
     assert client.get("/api/moments").json()["total"] == 0
     assert client.get("/api/clips").json()["total"] == 0
 
+    # browser upload -> usable local source (needed when the server is remote)
+    up = client.post("/api/uploads", files={"file": ("mi clip.mp4", tts_video.read_bytes(), "video/mp4")}).json()
+    assert up["path"].endswith("mi clip.mp4") and up["size"] > 0
+    assert client.post("/api/channels/resolve", json={"url": up["path"]}).json()["status"]["is_live"]
+    assert client.post("/api/uploads", files={"file": ("notes.txt", b"hi", "text/plain")}).status_code == 422
+
     # kick webhooks reject unsigned deliveries
     assert client.post("/api/webhooks/kick", content=b"{}").status_code == 400
 

@@ -56,6 +56,31 @@ export const api = {
   form: <T>(p: string, f: FormData) => request<T>("POST", p, f, true),
 };
 
+/** Multipart upload with progress (fetch has no upload progress events). */
+export function uploadWithProgress<T>(path: string, file: File, onProgress: (frac: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", path);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      let js: any = null;
+      try {
+        js = JSON.parse(xhr.responseText);
+      } catch {
+        /* non-JSON */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(js as T);
+      else reject(new ApiError(xhr.status, typeof js?.detail === "string" ? js.detail : xhr.statusText));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "error de red durante la subida"));
+    const fd = new FormData();
+    fd.append("file", file);
+    xhr.send(fd);
+  });
+}
+
 export function withToken(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
   const t = getToken();
