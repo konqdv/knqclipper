@@ -26,7 +26,7 @@ con el dominio **registrado en Porkbun**, solo cambias los *nameservers*:
 
 ## 3. En tu PC
 
-Ejecuta **`windows/Tunel-LiveClipper.bat`** (doble clic). Te pedirá:
+Ejecuta **`windows/LiveClipper.bat`** (doble clic). Arranca la app y, al final, te pregunta si levantar el túnel; responde que sí y te pedirá:
 - la **URL pública** (p. ej. `https://clipper.tudominio.com`),
 - el **token** del túnel que copiaste.
 
