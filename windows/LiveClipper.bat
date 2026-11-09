@@ -260,7 +260,7 @@ function Run-Tunnel([hashtable]$p) {
 Start-Transcript -Path $Log -Force | Out-Null
 try {
     Write-Host ''; Write-Host '  Live Clipper' -ForegroundColor Magenta
-    $p = Ensure-Installed
+    $p = Ensure-Installed | Where-Object { $_ -is [hashtable] } | Select-Object -Last 1
     Start-App $p
     Write-Host ''
     $ans = Read-Host '¿Levantar tambien el tunel de Cloudflare para tu subdominio? (s/N)'
