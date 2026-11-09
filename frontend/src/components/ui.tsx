@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import { AlertTriangle, CheckCircle2, CircleSlash, Clapperboard, Gamepad2, HardDrive, Loader2, Radio, Tv, X, Youtube } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { AlertTriangle, Check, CheckCircle2, CircleSlash, Clapperboard, Gamepad2, HardDrive, Loader2, Radio, Tv, X, Youtube } from "lucide-react";
+import { Fragment, useEffect, type ReactNode } from "react";
 import { CRITERIA_LABELS, PRIORITY } from "../lib/format";
 import type { Criterion, Platform } from "../lib/types";
 
@@ -92,6 +92,34 @@ export function SubscoreBars({ subscores, points, weights, compact = false }: {
           </div>
           <Meter value={(subscores[k] ?? 0) * 100} />
         </div>
+      ))}
+    </div>
+  );
+}
+
+export type StepStatus = "done" | "active" | "pending";
+export interface Step { label: string; status: StepStatus; detail?: string }
+
+/** Horizontal pipeline tracker: numbered steps, done/active/pending, with connectors. */
+export function StepTracker({ steps }: { steps: Step[] }) {
+  return (
+    <div className="flex items-start">
+      {steps.map((s, i) => (
+        <Fragment key={s.label}>
+          <div className="flex w-0 flex-1 flex-col items-center gap-1 px-1 text-center">
+            <div className={clsx("grid h-7 w-7 place-items-center rounded-full text-[11px] font-bold ring-1 transition",
+              s.status === "done" ? "bg-good-ink/15 text-good-ink ring-good-ink/40"
+                : s.status === "active" ? "bg-accent text-white shadow-lg shadow-accent/30 ring-accent"
+                  : "bg-panel-3 text-ink-3 ring-line")}>
+              {s.status === "done" ? <Check size={14} /> : s.status === "active" ? <span className="live-dot">{i + 1}</span> : i + 1}
+            </div>
+            <div className={clsx("truncate text-[11px] font-medium", s.status === "pending" ? "text-ink-3" : "text-ink-2")}>{s.label}</div>
+            <div className="tabular h-3.5 truncate text-[10px] text-ink-3">{s.detail ?? ""}</div>
+          </div>
+          {i < steps.length - 1 && (
+            <div className={clsx("mt-3.5 h-0.5 w-5 flex-none rounded sm:w-8", s.status === "done" ? "bg-accent/60" : "bg-line")} />
+          )}
+        </Fragment>
       ))}
     </div>
   );
