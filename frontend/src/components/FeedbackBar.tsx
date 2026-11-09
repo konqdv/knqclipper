@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Star, X } from "lucide-react";
+import { Check, Meh, Pencil, Star, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
@@ -37,14 +37,39 @@ export function FeedbackBar({ momentId, clipId, onDone }: { momentId?: number; c
     mutationFn: () => api.post<{ clip_id: number }>(`/api/moments/${momentId}/clip?render=false`),
     onSuccess: (r) => nav(`/editor/${r.clip_id}`),
   });
+  // One-click triage (bueno / pasable / malo), independent of the detailed reasons panel.
+  const quick = useMutation({
+    mutationFn: (q: { decision: string; mediocre?: boolean }) =>
+      api.post<{ clip_id?: number }>(path, { decision: q.decision, rating, reasons: [], mediocre: !!q.mediocre, needs_recut: false, render: q.decision === "approve" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["moments"] });
+      qc.invalidateQueries({ queryKey: ["clips"] });
+      qc.invalidateQueries({ queryKey: ["status"] });
+      onDone?.();
+    },
+  });
   const toggle = (r: string) => setPicked((p) => (p.includes(r) ? p.filter((x) => x !== r) : [...p, r]));
   const options = mode === "reject" ? reasons.data?.reject : reasons.data?.approve;
+  const busy = quick.isPending || send.isPending;
 
   return (
     <div className="space-y-2.5">
       <div className="flex flex-wrap items-center gap-2">
-        <button className={`btn ${mode === "approve" ? "btn-primary" : "btn-good"}`} onClick={() => setMode("approve")}><Check size={15} /> Aprobar</button>
-        <button className={`btn ${mode === "reject" ? "bg-rose-600 border-rose-600 text-white" : "btn-danger"}`} onClick={() => setMode("reject")}><X size={15} /> Rechazar</button>
+        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">Rápido</span>
+        <button className="btn btn-good" disabled={busy} onClick={() => quick.mutate({ decision: "approve" })} title="Aprobar y generar clip">
+          {quick.isPending ? <Spinner /> : <ThumbsUp size={15} />} Bueno
+        </button>
+        <button className="btn" disabled={busy} onClick={() => quick.mutate({ decision: "approve", mediocre: true })} title="Aprobar pero marcar como pasable">
+          <Meh size={15} /> Pasable
+        </button>
+        <button className="btn btn-danger" disabled={busy} onClick={() => quick.mutate({ decision: "reject" })} title="Rechazar">
+          <ThumbsDown size={15} /> Malo
+        </button>
+        <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button className={`btn ${mode === "approve" ? "btn-primary" : "btn-good"}`} onClick={() => setMode("approve")}><Check size={15} /> Aprobar con motivos</button>
+        <button className={`btn ${mode === "reject" ? "bg-rose-600 border-rose-600 text-white" : "btn-danger"}`} onClick={() => setMode("reject")}><X size={15} /> Rechazar con motivos</button>
         {momentId && <button className="btn" onClick={() => editFirst.mutate()} disabled={editFirst.isPending}>{editFirst.isPending ? <Spinner /> : <Pencil size={15} />} Editar antes</button>}
         <div className="ml-auto flex items-center gap-0.5" aria-label="Calificación">
           {[1, 2, 3, 4, 5].map((n) => (
