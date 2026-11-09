@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Pause, Play, RefreshCw, Trash2, Radio } from "lucide-react";
 import { channelState } from "./Dashboard";
-import { Empty, Meter, PageHeader, PlatformBadge, Spinner, StatusPill } from "../components/ui";
+import { Empty, Meter, PageHeader, PlatformBadge, Spinner, StatusPill, StepTracker, type Step } from "../components/ui";
 import { api } from "../lib/api";
 import { useEvents } from "../lib/events";
 import { catLabel, compact, fmtUptime } from "../lib/format";
@@ -36,6 +36,24 @@ function StreamCard({ channel: c }: { channel: Channel }) {
   const sig = ss?.signal ?? {};
   const ls = c.live_state ?? {};
 
+  // Signature pipeline: Conexión/Descarga → Captura → Transcripción → Análisis → Candidatos → Clips
+  const seg = ss?.segments ?? 0;
+  const asrOn = !!ss?.asr.enabled;
+  const asrLag = ss?.asr.lag_s ?? null;
+  const combined = ss?.signal?.combined ?? 0;
+  const cand = ss?.open_candidates ?? 0;
+  const accepted = ss?.engine?.accepted ?? 0;
+  const st = (done: boolean, active: boolean): Step["status"] => (done ? "done" : active ? "active" : "pending");
+  const steps: Step[] = [
+    { label: dl ? "Descarga" : "Conexión", status: ss ? "done" : dl ? "active" : c.monitoring ? "active" : "pending", detail: dl ? `${Math.round(dl.pct)}%` : ss ? "conectado" : undefined },
+    { label: "Captura", status: st(seg > 2, !!ss && seg <= 2), detail: ss ? `${seg} seg.` : undefined },
+    { label: "Transcripción", status: st(asrOn && (asrLag ?? 99) < 30, !!ss && asrOn), detail: asrOn && asrLag != null ? `−${asrLag.toFixed(0)}s` : undefined },
+    { label: "Análisis", status: st(combined > 0.05, !!ss && seg > 2), detail: ss?.classification ? catLabel(ss.classification.primary) : undefined },
+    { label: "Candidatos", status: st(cand > 0 || accepted > 0, !!ss && combined > 0.05), detail: ss ? String(cand) : undefined },
+    { label: "Clips", status: st(accepted > 0, !!ss && cand > 0), detail: accepted > 0 ? String(accepted) : undefined },
+  ];
+  const showPipeline = c.monitoring || !!ss || !!dl;
+
   return (
     <div className="card overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-4">
@@ -54,12 +72,16 @@ function StreamCard({ channel: c }: { channel: Channel }) {
         </div>
       </div>
 
-      {dl && !ss && (
-        <div className="flex items-center gap-3 border-b border-line bg-accent-soft/40 px-5 py-3 text-sm">
-          <Spinner />
-          <span className="whitespace-nowrap text-ink-2">{dl.phase === "merging" ? "Uniendo vídeo…" : "Descargando vídeo…"}</span>
-          <div className="flex-1"><Meter value={dl.pct} /></div>
-          <span className="tabular w-10 text-right text-ink-3">{Math.round(dl.pct)}%</span>
+      {showPipeline && (
+        <div className="border-b border-line bg-panel-2/50 px-5 py-4">
+          <StepTracker steps={steps} />
+          {dl && !ss && (
+            <div className="mt-3 flex items-center gap-3 text-xs">
+              <span className="whitespace-nowrap text-ink-2">{dl.phase === "merging" ? "Uniendo vídeo…" : "Descargando vídeo…"}</span>
+              <div className="flex-1"><Meter value={dl.pct} /></div>
+              <span className="tabular w-10 text-right text-ink-3">{Math.round(dl.pct)}%</span>
+            </div>
+          )}
         </div>
       )}
 
