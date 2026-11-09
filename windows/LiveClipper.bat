@@ -7,6 +7,7 @@ exit /b
 ##PS1##
 
 
+
 # Live Clipper - archivo unico: instala o actualiza, arranca la app y (opcional) levanta el tunel.
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
@@ -90,8 +91,10 @@ function Build-And-Install([string]$backend, [string]$venvPy) {
 }
 
 function Setup-Gpu([string]$backend, [string]$venvPy, [string]$envFile) {
-    # Si hay GPU NVIDIA: CUDA + librerias ACTUALIZADAS (soporte de GPUs nuevas, p.ej. Blackwell/50xx) + monitor.
-    $marker = Join-Path $backend '.gpu-configured2'
+    # Elige la config de transcripcion que de verdad funciona en ESTA maquina:
+    #  - prueba si la GPU acelera de verdad; si si -> cuda + large-v3-turbo (maxima calidad/velocidad)
+    #  - si no (p.ej. tarjeta muy nueva sin soporte aun) o no hay GPU -> CPU + modelo 'small' (rapido y fiable)
+    $marker = Join-Path $backend '.gpu-configured3'
     if (Test-Path $marker) { return }
     $hasNvidia = $false
     try {
@@ -101,20 +104,39 @@ function Setup-Gpu([string]$backend, [string]$venvPy, [string]$envFile) {
     if (-not $hasNvidia) {
         try { if (Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'NVIDIA' }) { $hasNvidia = $true } } catch { }
     }
+    $device = 'cpu'; $model = 'small'
     if ($hasNvidia) {
-        Say 'GPU NVIDIA detectada: instalando/actualizando CUDA para la transcripcion (puede tardar)...'
+        Say 'GPU NVIDIA detectada: instalando CUDA y comprobando si acelera de verdad (puede tardar)...'
         & $venvPy -m pip install --disable-pip-version-check -U ctranslate2 nvidia-cublas-cu12 nvidia-cudnn-cu12 nvidia-ml-py | Out-Host
-        if ($LASTEXITCODE -eq 0) {
-            Set-EnvVar $envFile 'CLIPPER_WHISPER_DEVICE' 'cuda'
-            Set-EnvVar $envFile 'CLIPPER_WHISPER_MODEL' 'large-v3-turbo'
-            $script:Built = $true
-            Ok 'CUDA listo (modelo large-v3-turbo). Si la GPU fallara, la app pasa a CPU y lo avisa en Recursos.'
+        $testPy = Join-Path $env:TEMP 'lc_cudatest.py'
+        $code = @'
+import sys, time
+try:
+    import numpy as np
+    from faster_whisper import WhisperModel
+    m = WhisperModel("small", device="cuda", compute_type="float16")
+    a = np.zeros(16000 * 10, dtype="float32")
+    list(m.transcribe(a, beam_size=1)[0])          # warmup (compila kernels la 1a vez)
+    t = time.time(); list(m.transcribe(a, beam_size=1)[0]); dt = time.time() - t
+    sys.stdout.write("FAST" if dt < 3.0 else "SLOW")
+except Exception:
+    sys.stdout.write("FAIL")
+'@
+        Set-Content -Path $testPy -Value $code -Encoding ASCII
+        $res = (& $venvPy $testPy 2>$null | Out-String).Trim()
+        Remove-Item $testPy -ErrorAction SilentlyContinue
+        if ($res -match 'FAST') {
+            $device = 'cuda'; $model = 'large-v3-turbo'
+            Ok 'La GPU acelera la transcripcion: ACTIVADA (modelo large-v3-turbo).'
         } else {
-            Ok 'No se pudieron instalar/actualizar las librerias CUDA; se seguira usando CPU.'
+            Ok 'La GPU no acelera aqui (tarjeta muy nueva o sin soporte en la libreria): usando CPU rapida (modelo small).'
         }
     } else {
-        Ok 'Sin GPU NVIDIA: se usa CPU (modelo small).'
+        Ok 'Sin GPU NVIDIA: CPU (modelo small).'
     }
+    Set-EnvVar $envFile 'CLIPPER_WHISPER_DEVICE' $device
+    Set-EnvVar $envFile 'CLIPPER_WHISPER_MODEL' $model
+    $script:Built = $true
     'configured' | Set-Content -Path $marker -Encoding ASCII
 }
 

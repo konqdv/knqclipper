@@ -92,6 +92,8 @@ class WhisperEngine:
                             log.warning("whisper CUDA load failed (%s); falling back to CPU", exc)
                             self.load_error = f"CUDA no se pudo usar para la transcripción; usando CPU: {exc}"[:300]
                             self.device, self.compute_type = "cpu", "int8"
+                            if self.model_name in ("large-v3-turbo", "turbo", "large-v3", "large-v2", "large"):
+                                self.model_name = "small"  # los modelos grandes son demasiado lentos en CPU
                             self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8",
                                                        download_root=root, cpu_threads=self.cpu_threads, num_workers=self._workers)
                         else:
