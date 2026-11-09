@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from clipper import __version__
@@ -31,6 +31,15 @@ from clipper.stream.manager import StreamManager, set_manager
 
 log = logging.getLogger(__name__)
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+UI_MISSING_HTML = """<!doctype html><html lang="es"><meta charset="utf-8"><title>Live Clipper</title>
+<body style="background:#0b0d12;color:#e8eaf0;font-family:system-ui,sans-serif;max-width:640px;margin:10vh auto;padding:0 16px;line-height:1.5">
+<h1 style="font-size:22px">El servidor funciona, pero falta la interfaz</h1>
+<p>No se encontró <code>frontend/dist</code>. Compílala una vez y recarga esta página:</p>
+<pre style="background:#141821;padding:12px;border-radius:10px">cd frontend
+npm install
+npm run build</pre>
+<p>En Windows, el instalador <code>windows/Instalar-LiveClipper.bat</code> lo hace automáticamente.
+La API sigue disponible en <a style="color:#a78bfa" href="/docs">/docs</a>.</p></body></html>"""
 
 
 async def bootstrap(settings: Settings, *, run_workers: bool = True, resume: bool = True) -> dict:
@@ -109,14 +118,22 @@ def create_app() -> FastAPI:
         app.include_router(r)
     app.mount("/media", StaticFiles(directory=settings.data_dir), name="media")
     app.mount("/fonts", StaticFiles(directory=FONTS_DIR), name="fonts")
-    if FRONTEND_DIST.exists():
-        app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+    dist = FRONTEND_DIST.resolve()
+    if (dist / "index.html").is_file():
+        if (dist / "assets").is_dir():
+            app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
         @app.get("/{path:path}", include_in_schema=False)
         async def spa(path: str):
-            f = FRONTEND_DIST / path
-            if path and f.is_file():
+            f = (dist / path).resolve()
+            # only serve files that really live inside frontend/dist (no "../" escapes)
+            if path and f.is_file() and f.is_relative_to(dist):
                 return FileResponse(f)
-            return FileResponse(FRONTEND_DIST / "index.html")
+            return FileResponse(dist / "index.html")
+    else:
+
+        @app.get("/", include_in_schema=False)
+        async def ui_missing():
+            return HTMLResponse(UI_MISSING_HTML, status_code=503)
 
     return app

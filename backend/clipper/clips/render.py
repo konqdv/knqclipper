@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -98,7 +99,9 @@ async def render(spec: RenderSpec, work_dir: Path, on_progress: Callable[[float]
         del cmd[j: j + 2]
     log.info("render: ffmpeg %s", " ".join(cmd)[:600])
     t0 = time.time()
-    proc = await asyncio.create_subprocess_exec("nice", "-n", "10", "ffmpeg", *cmd, stdout=asyncio.subprocess.PIPE,
+    # lower the render priority so capture/analysis stay responsive (`nice` does not exist on Windows)
+    prefix = ["nice", "-n", "10"] if shutil.which("nice") else []
+    proc = await asyncio.create_subprocess_exec(*prefix, "ffmpeg", *cmd, stdout=asyncio.subprocess.PIPE,
                                                 stderr=asyncio.subprocess.PIPE)
     assert proc.stdout and proc.stderr
     err_task = asyncio.create_task(proc.stderr.read())

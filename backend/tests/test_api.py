@@ -57,6 +57,12 @@ def test_api_end_to_end_without_network(client, tts_video):
     assert client.get("/api/moments").json()["total"] == 0
     assert client.get("/api/clips").json()["total"] == 0
 
+    # browser upload -> usable local source (needed when the server is remote)
+    up = client.post("/api/uploads", files={"file": ("mi clip.mp4", tts_video.read_bytes(), "video/mp4")}).json()
+    assert up["path"].endswith("mi clip.mp4") and up["size"] > 0
+    assert client.post("/api/channels/resolve", json={"url": up["path"]}).json()["status"]["is_live"]
+    assert client.post("/api/uploads", files={"file": ("notes.txt", b"hi", "text/plain")}).status_code == 422
+
     # kick webhooks reject unsigned deliveries
     assert client.post("/api/webhooks/kick", content=b"{}").status_code == 400
 
@@ -66,3 +72,21 @@ def test_api_end_to_end_without_network(client, tts_video):
     assert client.delete(f"/api/channels/{ch['id']}").status_code == 204
     assert client.get("/api/channels").json() == []
     time.sleep(0.1)
+
+
+def test_spa_route_cannot_escape_frontend_dist(client):
+    # encoded slashes reach the catch-all route decoded as "../.." segments
+    for path in ("/..%2F..%2Fbackend%2Fpyproject.toml", "/%2E%2E/%2E%2E/backend/pyproject.toml"):
+        r = client.get(path)
+        assert "universal-ai-live-clipper" not in r.text, f"{path} leaked a file outside frontend/dist"
+
+
+def test_missing_ui_shows_help_page(tmp_path, monkeypatch):
+    import clipper.main as main
+
+    override_settings(data_dir=tmp_path / "data", whisper_model="tiny")
+    monkeypatch.setattr(main, "FRONTEND_DIST", tmp_path / "no-dist")
+    with TestClient(main.create_app()) as c:
+        r = c.get("/")
+        assert r.status_code == 503 and "npm run build" in r.text
+        assert c.get("/api/system/status").status_code == 200
