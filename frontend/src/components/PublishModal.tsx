@@ -62,6 +62,11 @@ export function PublishModal({ clip, open, onClose }: { clip: ClipSummary; open:
   const hasYouTube = selected.has("shorts");
   const toggle = (p: string) => setSelected((s) => { const n = new Set(s); n.has(p) ? n.delete(p) : n.add(p); return n; });
 
+  // Presets de destino (los clips ya salen en 9:16; "Verticales" = Shorts/Reels/TikTok/Facebook Reels).
+  const VERTICAL = new Set(["shorts", "reels", "tiktok", "fb_reels"]);
+  const ready = targets.data?.targets.filter((t) => t.ready).map((t) => t.platform) ?? [];
+  const verticals = ready.filter((p) => VERTICAL.has(p));
+
   return (
     <Modal open={open} onClose={onClose} title={`Publicar: ${clip.title}`} wide>
       <div className="grid gap-5 md:grid-cols-[150px_1fr]">
@@ -78,7 +83,16 @@ export function PublishModal({ clip, open, onClose }: { clip: ClipSummary; open:
         <div className="min-w-0 space-y-4">
           {targets.isLoading ? <Spinner /> : (
             <div className="space-y-3">
-              <div className="label">Redes</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="label">Redes</span>
+                {ready.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Chip active={selected.size === ready.length && ready.length > 0} onClick={() => setSelected(new Set(ready))}>Todas</Chip>
+                    {verticals.length > 0 && <Chip active={selected.size === verticals.length && [...selected].every((p) => VERTICAL.has(p))} onClick={() => setSelected(new Set(verticals))}>Verticales</Chip>}
+                    <Chip onClick={() => setSelected(new Set())}>Ninguna</Chip>
+                  </div>
+                )}
+              </div>
               {targets.data?.targets.map((t) => (
                 <div key={t.platform} className={`rounded-xl p-3 ring-1 ${selected.has(t.platform) ? "bg-accent-soft ring-accent/50" : "bg-panel-2 ring-line"}`}>
                   <div className="flex items-center gap-2">
