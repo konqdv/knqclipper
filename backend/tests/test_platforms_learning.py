@@ -93,3 +93,53 @@ def test_model_learns_creator_specific_preferences_and_validates():
     assert hi_a < lo_b + 15 and lo_b > lo_a
     mult = m.weight_multipliers("a", "podcast")
     assert all(0.5 <= v <= 1.5 for v in mult.values())
+
+
+async def test_youtube_video_is_classified_live_vod_or_upcoming(monkeypatch):
+    from types import SimpleNamespace
+
+    from clipper.connectors.base import ConnectorContext
+    from clipper.connectors.youtube import YouTubeConnector
+
+    ctx = ConnectorContext(settings=SimpleNamespace(youtube_api_key="k", youtube_cookies_file=None))
+    conn = YouTubeConnector(YouTubeConnector.parse_url("https://www.youtube.com/watch?v=jfKfPfyJRdk"), ctx)
+
+    async def fake_api(path, params, video):
+        return {"items": [{"snippet": {"liveBroadcastContent": video["lbc"], "title": "t", "channelTitle": "c"},
+                           "liveStreamingDetails": video["lsd"]}]}
+
+    # a normal uploaded video -> VOD (process once), not a live
+    monkeypatch.setattr(conn, "_api", lambda p, q: fake_api(p, q, {"lbc": "none", "lsd": {}}))
+    st = await conn.check_live()
+    assert not st.is_live and st.extra["is_vod"] and not st.extra["is_upcoming"]
+
+    # an ended live is now a watchable VOD too
+    monkeypatch.setattr(conn, "_api", lambda p, q: fake_api(p, q, {"lbc": "none", "lsd": {"actualEndTime": "2026-01-01T00:00:00Z"}}))
+    assert (await conn.check_live()).extra["is_vod"]
+
+    # currently live -> not a VOD
+    monkeypatch.setattr(conn, "_api", lambda p, q: fake_api(p, q, {"lbc": "live", "lsd": {}}))
+    st = await conn.check_live()
+    assert st.is_live and not st.extra["is_vod"]
+
+    # scheduled premiere/live -> wait, not a VOD
+    monkeypatch.setattr(conn, "_api", lambda p, q: fake_api(p, q, {"lbc": "upcoming", "lsd": {}}))
+    st = await conn.check_live()
+    assert not st.is_live and st.extra["is_upcoming"] and not st.extra["is_vod"]
+
+
+async def test_youtube_channel_handle_is_never_vod(monkeypatch):
+    from types import SimpleNamespace
+
+    from clipper.connectors.base import ConnectorContext
+    from clipper.connectors.youtube import YouTubeConnector
+
+    ctx = ConnectorContext(settings=SimpleNamespace(youtube_api_key="k", youtube_cookies_file=None))
+    conn = YouTubeConnector(YouTubeConnector.parse_url("https://www.youtube.com/@LofiGirl"), ctx)
+
+    async def no_live(path, params):
+        return {"items": []} if path == "search" else {"items": [{"id": "UC123"}]}
+
+    monkeypatch.setattr(conn, "_api", no_live)
+    st = await conn.check_live()
+    assert not st.is_live and not st.extra.get("is_vod")  # a channel waits for a live, never one-shot

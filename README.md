@@ -29,6 +29,10 @@ Documentación técnica:
 - Opcional: GPU NVIDIA con CUDA (ASR float16 + NVENC), Redis (workers independientes),
   PostgreSQL, Ollama u otro proveedor LLM.
 
+## Acceso desde tu subdominio (opcional, gratis)
+
+Para usar la app desde el móvil o cualquier sitio en `https://clipper.tudominio` —y poder publicar en Instagram, que exige URL pública— sin alquilar un servidor: expón tu PC con un **Cloudflare Tunnel**. Guía paso a paso en [`deploy/cloudflare/README.md`](deploy/cloudflare/README.md); en Windows se levanta con `windows/Tunel-LiveClipper.bat`.
+
 ## Windows: instalación con un clic
 
 1. Descarga [`windows/Instalar-LiveClipper.bat`](windows/Instalar-LiveClipper.bat) (botón «Download raw file»).

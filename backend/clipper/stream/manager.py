@@ -146,13 +146,19 @@ class StreamManager:
                 if ch is None or not ch.monitoring:
                     return
                 cfg = channel_config(ch.config)
-                row = {"id": ch.id, "handle": ch.handle, "platform": ch.platform, "display_name": ch.display_name}
-                connector = make_connector(source_from_row(ch), self.credentials_ctx(), cfg)
+                src = source_from_row(ch)
+                row = {"id": ch.id, "handle": ch.handle, "platform": ch.platform, "display_name": ch.display_name, "url": ch.url}
+                connector = make_connector(src, self.credentials_ctx(), cfg)
             try:
                 status = await connector.check_live()
             except Exception as exc:  # noqa: BLE001
                 status = LiveStatus(False, "error", error=str(exc))
             await self._store_status(channel_id, status)
+            # a YouTube (or video) link that is not a live and not an upcoming premiere: process once as a VOD
+            if not status.is_live and (status.extra or {}).get("is_vod") and src.kind == "video":
+                if await self._run_vod_once(channel_id, row, cfg):
+                    return
+                continue
             if status.is_live:
                 backoff = 5.0
                 session = StreamSession(self, row, connector, status, cfg)
@@ -185,6 +191,30 @@ class StreamManager:
                 continue
             await asyncio.sleep(self.settings.live_poll_interval_s if row["platform"] != "youtube" or not self.settings.youtube_api_key
                                 else max(self.settings.live_poll_interval_s, 300))
+
+    async def _run_vod_once(self, channel_id: int, row: dict, cfg: dict) -> bool:
+        """Process a non-live video once (extract clips) and stop monitoring. Returns True when handled."""
+        vod_src = ParsedSource("vod", row["url"], "vod", display_name=row["display_name"], url=row["url"])
+        connector = make_connector(vod_src, self.credentials_ctx(), {**cfg, "realtime": False})
+        try:
+            status = await connector.check_live()
+        except Exception as exc:  # noqa: BLE001
+            status = LiveStatus(False, "error", error=str(exc))
+        if not status.is_live:
+            await self._store_status(channel_id, status)
+            return False  # not playable yet; keep polling
+        session = StreamSession(self, row, connector, status, cfg)
+        self.sessions[channel_id] = session
+        try:
+            await session.run()
+        finally:
+            self.sessions.pop(channel_id, None)
+        async with session_scope() as s:
+            ch = await s.get(Channel, channel_id)
+            if ch:
+                ch.monitoring = False
+        bus.publish("channel.monitoring", channel_id=channel_id, monitoring=False, reason="vídeo procesado")
+        return True
 
     def snapshot(self) -> dict[int, dict[str, Any]]:
         return {cid: s.snapshot() for cid, s in self.sessions.items()}

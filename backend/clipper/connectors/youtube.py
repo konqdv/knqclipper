@@ -146,13 +146,16 @@ class YouTubeConnector(Connector):
             return LiveStatus(False, "youtube_api", error="video not found")
         it = items[0]
         sn, lsd = it.get("snippet", {}), it.get("liveStreamingDetails", {})
-        live = sn.get("liveBroadcastContent") == "live" and not lsd.get("actualEndTime")
+        lbc = sn.get("liveBroadcastContent")
+        live = lbc == "live" and not lsd.get("actualEndTime")
+        upcoming = lbc == "upcoming"
+        is_vod = self.source.kind == "video" and not live and not upcoming  # normal/ended video -> process once
         return LiveStatus(
             live, "youtube_api", title=sn.get("title"), category=sn.get("categoryId"),
             started_at=_iso(lsd.get("actualStartTime")), stream_id=vid,
             viewer_count=int(lsd["concurrentViewers"]) if lsd.get("concurrentViewers") else None,
             thumbnail_url=(sn.get("thumbnails", {}).get("high") or {}).get("url"), display_name=sn.get("channelTitle"),
-            extra={"live_chat_id": lsd.get("activeLiveChatId")},
+            extra={"live_chat_id": lsd.get("activeLiveChatId"), "is_upcoming": upcoming, "is_vod": is_vod},
         )
 
     async def check_live(self) -> LiveStatus:
@@ -181,11 +184,15 @@ class YouTubeConnector(Connector):
                     "(estado oficial) o CLIPPER_YOUTUBE_COOKIES_FILE."))
             offline = any(k in low for k in ("not currently live", "will begin", "is offline", "does not have a live"))
             return LiveStatus(False, "yt-dlp", error=None if offline else msg[:300])
-        live = bool(info.get("is_live")) or info.get("live_status") == "is_live"
+        ls = info.get("live_status")
+        live = bool(info.get("is_live")) or ls == "is_live"
+        upcoming = ls == "is_upcoming"
+        is_vod = self.source.kind == "video" and not live and not upcoming
         return LiveStatus(
             live, "yt-dlp", title=info.get("title"), category=(info.get("categories") or [None])[0],
             started_at=info.get("release_timestamp"), stream_id=info.get("id"), viewer_count=info.get("concurrent_view_count"),
             thumbnail_url=info.get("thumbnail"), display_name=info.get("channel") or info.get("uploader"),
+            extra={"is_upcoming": upcoming, "is_vod": is_vod},
         )
 
     async def open_capture(self, out_dir: Path) -> CaptureSource:
