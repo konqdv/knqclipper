@@ -9,6 +9,7 @@ exit /b
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
 function Has([string]$c) { return [bool](Get-Command $c -ErrorAction SilentlyContinue) }
 function Refresh-Path {
@@ -41,18 +42,25 @@ $startBat = Join-Path $PSScriptRoot 'Iniciar-LiveClipper.bat'
 Write-Host ''
 Write-Host '  Live Clipper - Tunel de Cloudflare' -ForegroundColor Magenta
 
+# Get cloudflared: use the system one if present, otherwise download the portable .exe (no install, no admin)
 Refresh-Path
+$cf = 'cloudflared'
 if (-not (Has 'cloudflared')) {
-    Write-Host '==> Instalando cloudflared...' -ForegroundColor Cyan
-    winget install --id Cloudflare.cloudflared -e --silent --accept-package-agreements --accept-source-agreements
-    Refresh-Path
+    $cfDir = Join-Path $root 'bin'
+    New-Item -ItemType Directory -Force -Path $cfDir | Out-Null
+    $cf = Join-Path $cfDir 'cloudflared.exe'
+    if (-not (Test-Path $cf)) {
+        Write-Host '==> Descargando cloudflared (portable, sin instalar)...' -ForegroundColor Cyan
+        $url = 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe'
+        try { Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $cf }
+        catch { Write-Host "  No se pudo descargar cloudflared: $($_.Exception.Message)" -ForegroundColor Red; Read-Host 'Enter para salir'; exit 1 }
+    }
 }
-if (-not (Has 'cloudflared')) { Write-Host '  No se pudo instalar cloudflared. Instalalo desde https://github.com/cloudflare/cloudflared/releases' -ForegroundColor Red; Read-Host 'Enter para salir'; exit 1 }
 
 # Public URL (persisted so you only type it once)
 $publicUrl = Get-EnvVar $envFile 'CLIPPER_PUBLIC_BASE_URL'
 if (-not $publicUrl) {
-    $publicUrl = (Read-Host 'URL publica de tu subdominio (ej. https://clipper.tudominio.com)').Trim().TrimEnd('/')
+    $publicUrl = (Read-Host 'URL publica de tu subdominio (ej. https://clipper.konq.lol)').Trim().TrimEnd('/')
 }
 if ($publicUrl -notmatch '^https?://') { Write-Host '  La URL debe empezar por https://' -ForegroundColor Red; Read-Host 'Enter para salir'; exit 1 }
 Set-EnvVar $envFile 'CLIPPER_PUBLIC_BASE_URL' $publicUrl
@@ -69,13 +77,13 @@ Write-Host "  Subdominio: $publicUrl" -ForegroundColor Green
 Write-Host "  Token de acceso (lo pedira la app una vez, en Configuracion): $token" -ForegroundColor Yellow
 Write-Host ''
 
-$tunnelToken = (Read-Host 'Pega el token del tunel de Cloudflare (tras --token)').Trim()
+$tunnelToken = (Read-Host 'Pega el token del tunel de Cloudflare (la cadena eyJ... tras --token)').Trim()
 if (-not $tunnelToken) { Write-Host '  Sin token del tunel no se puede continuar.' -ForegroundColor Red; Read-Host 'Enter para salir'; exit 1 }
 
 # Start the app in its own window (serves on localhost:8000) and then the tunnel.
 if (Test-Path $startBat) { Start-Process -FilePath $startBat }
 Write-Host '==> Levantando el tunel. Deja esta ventana abierta. Ctrl+C para detener.' -ForegroundColor Cyan
-& cloudflared tunnel run --token $tunnelToken
+& $cf tunnel run --token $tunnelToken
 Write-Host ''
 Write-Host '  Tunel detenido.'
 Read-Host 'Enter para cerrar'
