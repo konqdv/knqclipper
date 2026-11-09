@@ -374,6 +374,9 @@ class HighlightEngine:
         tiers = rank_cfg.get("tiers", {})
         priority = priority_for(score, tiers)
         floor = float(det.get("min_candidate_score", 50)) if c.kind == "trigger" else float(tiers.get("review", 60))
+        floor = max(floor, 50.0)  # nunca aceptar momentos flojos (<50) aunque se hayan bajado los umbrales
+        if self.cfg.get("mode") == "autopilot":
+            floor = max(floor, float(self.cfg.get("min_score", 75)))  # en autopilot, solo lo que de verdad se publicaría
         if score < floor:
             self.stats["discarded"] += 1
             log.info("candidate @%.1fs discarded (score %.1f < %.0f)", c.peak_t, score, floor)

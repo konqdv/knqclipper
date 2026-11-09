@@ -6,6 +6,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=[IO.File]::ReadAllTex
 exit /b
 ##PS1##
 
+
 # Live Clipper - archivo unico: instala o actualiza, arranca la app y (opcional) levanta el tunel.
 $ErrorActionPreference = 'Continue'
 $ProgressPreference = 'SilentlyContinue'
@@ -89,8 +90,8 @@ function Build-And-Install([string]$backend, [string]$venvPy) {
 }
 
 function Setup-Gpu([string]$backend, [string]$venvPy, [string]$envFile) {
-    # Una sola vez: si hay GPU NVIDIA, activa CUDA + modelo grande (mejor calidad y velocidad).
-    $marker = Join-Path $backend '.gpu-configured'
+    # Si hay GPU NVIDIA: CUDA + librerias ACTUALIZADAS (soporte de GPUs nuevas, p.ej. Blackwell/50xx) + monitor.
+    $marker = Join-Path $backend '.gpu-configured2'
     if (Test-Path $marker) { return }
     $hasNvidia = $false
     try {
@@ -101,15 +102,15 @@ function Setup-Gpu([string]$backend, [string]$venvPy, [string]$envFile) {
         try { if (Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'NVIDIA' }) { $hasNvidia = $true } } catch { }
     }
     if ($hasNvidia) {
-        Say 'GPU NVIDIA detectada: activando CUDA para transcribir mas rapido y con mejor calidad...'
-        & $venvPy -m pip install --disable-pip-version-check nvidia-cublas-cu12 nvidia-cudnn-cu12
+        Say 'GPU NVIDIA detectada: instalando/actualizando CUDA para la transcripcion (puede tardar)...'
+        & $venvPy -m pip install --disable-pip-version-check -U ctranslate2 nvidia-cublas-cu12 nvidia-cudnn-cu12 nvidia-ml-py | Out-Host
         if ($LASTEXITCODE -eq 0) {
             Set-EnvVar $envFile 'CLIPPER_WHISPER_DEVICE' 'cuda'
             Set-EnvVar $envFile 'CLIPPER_WHISPER_MODEL' 'large-v3-turbo'
             $script:Built = $true
-            Ok 'CUDA activado (modelo large-v3-turbo). Si la GPU fallara, la app usa CPU automaticamente.'
+            Ok 'CUDA listo (modelo large-v3-turbo). Si la GPU fallara, la app pasa a CPU y lo avisa en Recursos.'
         } else {
-            Ok 'No se pudieron instalar las librerias CUDA; se seguira usando CPU.'
+            Ok 'No se pudieron instalar/actualizar las librerias CUDA; se seguira usando CPU.'
         }
     } else {
         Ok 'Sin GPU NVIDIA: se usa CPU (modelo small).'

@@ -52,7 +52,7 @@ async def status() -> dict[str, Any]:
         "version": __version__, "time": time.time(), "resources": system.snapshot(settings.data_dir), "counts": counts,
         "sessions": mgr.snapshot(), "queue": get_queue().pending(), "queue_backend": settings.queue_backend,
         "asr": {"model": settings.whisper_model, "loaded": bool(asr and asr.loaded), "device": asr.device if asr else None,
-                "compute_type": asr.compute_type if asr else None, "error": mgr._asr_failed,
+                "compute_type": asr.compute_type if asr else None, "error": (asr.load_error if asr else None) or mgr._asr_failed,
                 "rtf": round(asr.realtime_factor, 3) if asr and asr.realtime_factor else None},
         "llm": {"provider": settings.llm_provider, "model": settings.llm_model if settings.llm_provider != "none" else None},
         "disk_free_gb": round(get_storage().free_gb(), 2),

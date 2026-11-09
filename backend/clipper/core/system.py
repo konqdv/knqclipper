@@ -56,9 +56,28 @@ def gpu_stats() -> list[dict]:
                 "mem_used_mb": mem.used // 2**20,
                 "mem_total_mb": mem.total // 2**20,
             })
-        return res
+        if res:
+            return res
     except Exception:
-        return []
+        pass
+    # fallback: query nvidia-smi directly (no extra Python dependency needed)
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=index,name,utilization.gpu,memory.used,memory.total",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode == 0:
+            res = []
+            for line in out.stdout.strip().splitlines():
+                p = [x.strip() for x in line.split(",")]
+                if len(p) >= 5:
+                    res.append({"index": int(p[0]), "name": p[1], "util_percent": int(float(p[2])),
+                                "mem_used_mb": int(float(p[3])), "mem_total_mb": int(float(p[4]))})
+            return res
+    except Exception:
+        pass
+    return []
 
 
 def snapshot(data_dir: Path) -> dict:

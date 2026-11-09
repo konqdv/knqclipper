@@ -64,6 +64,7 @@ class WhisperEngine:
         self.cpu_threads = cpu_threads or max(1, (os.cpu_count() or 2) // max(1, workers))
         self._workers = workers
         self._model = None
+        self.load_error: str | None = None
         self._load_lock = threading.Lock()
         self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="asr")
         self.inflight = 0
@@ -89,6 +90,7 @@ class WhisperEngine:
                     except Exception as exc:
                         if self.device == "cuda":
                             log.warning("whisper CUDA load failed (%s); falling back to CPU", exc)
+                            self.load_error = f"CUDA no se pudo usar para la transcripción; usando CPU: {exc}"[:300]
                             self.device, self.compute_type = "cpu", "int8"
                             self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8",
                                                        download_root=root, cpu_threads=self.cpu_threads, num_workers=self._workers)
