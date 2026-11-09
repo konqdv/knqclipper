@@ -1,0 +1,24 @@
+# runtime data (buffers, clips, models, database)
+data/
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+secret.key
+.env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# node
+node_modules/
+frontend/dist/
+
+# misc
+.DS_Store
+*.log
