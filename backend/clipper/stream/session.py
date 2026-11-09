@@ -41,6 +41,8 @@ class StreamSession:
         self.manager = manager
         self.channel = channel
         self.connector = connector
+        # one-shot sources (VOD/file) are paced to the transcriber so capture never outruns ASR
+        self.paced = connector.platform in ("vod", "local")
         self.status = status
         self.cfg = cfg
         self.session_id: int | None = None
@@ -180,6 +182,12 @@ class StreamSession:
                 if row:
                     row.status, row.wall_start = "live", wall0
             self._publish_state("live")
+        if self.paced and self.transcriber is not None:
+            # wait while transcription falls behind, so candidates are evaluated on transcribed audio
+            waited = 0.0
+            while self.transcriber.lag_seconds > 45 and not self._stop.is_set() and waited < 180:
+                await asyncio.sleep(0.5)
+                waited += 0.5
         try:
             self._seg_queue.put_nowait(seg)
         except asyncio.QueueFull:

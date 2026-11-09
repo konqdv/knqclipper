@@ -83,8 +83,17 @@ class WhisperEngine:
                     t = time.time()
                     root = str(self.models_dir / "hf" / "hub") if self.models_dir else None
                     os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
-                    self._model = WhisperModel(self.model_name, device=self.device, compute_type=self.compute_type,
-                                               download_root=root, cpu_threads=self.cpu_threads, num_workers=self._workers)
+                    try:
+                        self._model = WhisperModel(self.model_name, device=self.device, compute_type=self.compute_type,
+                                                   download_root=root, cpu_threads=self.cpu_threads, num_workers=self._workers)
+                    except Exception as exc:
+                        if self.device == "cuda":
+                            log.warning("whisper CUDA load failed (%s); falling back to CPU", exc)
+                            self.device, self.compute_type = "cpu", "int8"
+                            self._model = WhisperModel(self.model_name, device="cpu", compute_type="int8",
+                                                       download_root=root, cpu_threads=self.cpu_threads, num_workers=self._workers)
+                        else:
+                            raise
                     log.info("whisper %s loaded on %s/%s in %.1fs", self.model_name, self.device, self.compute_type, time.time() - t)
         return self._model
 

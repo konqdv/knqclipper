@@ -80,10 +80,54 @@ function Build-And-Install([string]$backend, [string]$venvPy) {
     & $venvPy -m pip install --upgrade pip --disable-pip-version-check
     & $venvPy -m pip install -e $backend --disable-pip-version-check
     Assert-Exit 'La instalacion de dependencias'
+    $script:Built = $true
     Ok 'Actualizado'
 }
 
+function Setup-Gpu([string]$backend, [string]$venvPy, [string]$envFile) {
+    # Una sola vez: si hay GPU NVIDIA, activa CUDA + modelo grande (mejor calidad y velocidad).
+    $marker = Join-Path $backend '.gpu-configured'
+    if (Test-Path $marker) { return }
+    $hasNvidia = $false
+    try {
+        $smi = Join-Path $env:SystemRoot 'System32\nvidia-smi.exe'
+        if (Test-Path $smi) { & $smi -L *> $null; if ($LASTEXITCODE -eq 0) { $hasNvidia = $true } }
+    } catch { }
+    if (-not $hasNvidia) {
+        try { if (Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'NVIDIA' }) { $hasNvidia = $true } } catch { }
+    }
+    if ($hasNvidia) {
+        Say 'GPU NVIDIA detectada: activando CUDA para transcribir mas rapido y con mejor calidad...'
+        & $venvPy -m pip install --disable-pip-version-check nvidia-cublas-cu12 nvidia-cudnn-cu12
+        if ($LASTEXITCODE -eq 0) {
+            Set-EnvVar $envFile 'CLIPPER_WHISPER_DEVICE' 'cuda'
+            Set-EnvVar $envFile 'CLIPPER_WHISPER_MODEL' 'large-v3-turbo'
+            $script:Built = $true
+            Ok 'CUDA activado (modelo large-v3-turbo). Si la GPU fallara, la app usa CPU automaticamente.'
+        } else {
+            Ok 'No se pudieron instalar las librerias CUDA; se seguira usando CPU.'
+        }
+    } else {
+        Ok 'Sin GPU NVIDIA: se usa CPU (modelo small).'
+    }
+    'configured' | Set-Content -Path $marker -Encoding ASCII
+}
+
+function Ensure-Model([string]$backend, [string]$venvPy, [string]$envFile) {
+    # Descarga por adelantado el modelo de voz configurado (evita la espera en el primer video).
+    $model = Get-EnvVar $envFile 'CLIPPER_WHISPER_MODEL'
+    if (-not $model) { $model = 'small' }
+    $cache = Join-Path $backend 'data\models\hf\hub'
+    New-Item -ItemType Directory -Force -Path $cache | Out-Null
+    Say "Preparando el modelo de voz ($model)..."
+    try {
+        & $venvPy -c "from faster_whisper import download_model; download_model('$model', cache_dir=r'$cache')"
+        if ($LASTEXITCODE -eq 0) { Ok 'Modelo listo.' } else { Ok 'El modelo se descargara al procesar el primer video.' }
+    } catch { Ok 'El modelo se descargara al procesar el primer video.' }
+}
+
 function Ensure-Installed {
+    $script:Built = $false
     $backend = Join-Path $Dest 'backend'
     $venvPy  = Join-Path $backend '.venv\Scripts\python.exe'
     $distIdx = Join-Path $Dest 'frontend\dist\index.html'
@@ -117,7 +161,10 @@ function Ensure-Installed {
     }
 
     $envFile = Join-Path $backend '.env'
-    if (-not (Test-Path $envFile)) { @('CLIPPER_DATA_DIR=./data', 'CLIPPER_WHISPER_MODEL=small', 'CLIPPER_WHISPER_DEVICE=cpu') | Set-Content -Path $envFile -Encoding ASCII }
+    if (-not (Test-Path $envFile)) { @('CLIPPER_DATA_DIR=./data', 'CLIPPER_WHISPER_MODEL=small', 'CLIPPER_WHISPER_DEVICE=auto') | Set-Content -Path $envFile -Encoding ASCII }
+
+    Setup-Gpu $backend $venvPy $envFile
+    if ($script:Built) { Ensure-Model $backend $venvPy $envFile }
 
     # Desktop shortcut to THIS single file
     try {
