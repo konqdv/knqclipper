@@ -144,7 +144,7 @@ class CaptionRenderer:
                 f"{ass_color(watermark.get('color', '#FFFFFF'), 1 - float(watermark.get('opacity', 0.6)))},&H00FFFFFF,"
                 f"{ass_color('#000000', 0.6)},&H00000000,0,0,0,0,100,100,0,0,1,2,0,{align_wm},50,50,60,1")
         return "\n".join([
-            "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {self.w}", f"PlayResY: {self.h}", "WrapStyle: 2",
+            "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {self.w}", f"PlayResY: {self.h}", "WrapStyle: 0",
             "ScaledBorderAndShadow: yes", "YCbCr Matrix: TV.709", "", "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, "
             "Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",

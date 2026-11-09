@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, desc, func, select, true
 
 from clipper.api.serializers import clip_out, moment_out
-from clipper.clips.service import create_clip_from_moment, enqueue_render
+from clipper.clips.service import create_clip_from_moment, enqueue_render, plan_for
 from clipper.core.appsettings import channel_config, store
 from clipper.core.events import bus
 from clipper.db.models import Channel, Clip, Feedback, Moment
@@ -217,6 +217,26 @@ async def render_clip(cid: int, preview: bool = False) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
     return {"job_id": job}
+
+
+@router.post("/clips/{cid}/plan")
+async def compute_plan(cid: int) -> dict[str, Any]:
+    """Compute (and cache in the clip edit) the reframing plan for the current trim/mode, for the editor preview."""
+    async with session_scope() as s:
+        c = await s.get(Clip, cid)
+        if c is None:
+            raise HTTPException(404)
+        m = await s.get(Moment, c.moment_id) if c.moment_id else None
+        if m is None or not m.source_path or not Path(m.source_path).exists():
+            raise HTTPException(409, "source media not available")
+        edit = ClipEdit(**c.edit)
+        source, category = m.source_path, m.category
+    plan = await plan_for(edit, source, category)
+    async with session_scope() as s:
+        c = await s.get(Clip, cid)
+        if c is not None:
+            c.edit = {**c.edit, "reframe": edit.reframe.model_dump()}
+    return {"plan": plan.to_dict(), "reframe": edit.reframe.model_dump()}
 
 
 @router.post("/clips/{cid}/feedback")

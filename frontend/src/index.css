@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0d12;
+  --color-panel: #11141b;
+  --color-panel-2: #141821;
+  --color-panel-3: #1b2030;
+  --color-line: #232838;
+  --color-line-2: #2e3448;
+  --color-ink: #e8eaf0;
+  --color-ink-2: #a3a9b8;
+  --color-ink-3: #6b7280;
+  --color-accent: #8b5cf6;
+  --color-accent-2: #a78bfa;
+  --color-accent-soft: #2a2145;
+  --color-good: #0ca30c;
+  --color-good-ink: #34d399;
+  --color-warn: #fab219;
+  --color-serious: #ec835a;
+  --color-crit: #d03b3b;
+  --color-series-1: #3987e5;
+  --color-series-1-track: #1c2a40;
+  --color-twitch: #9146ff;
+  --color-youtube: #ff0033;
+  --color-kick: #53fc18;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Caption fonts served by the backend (same TTFs libass uses → preview matches render) */
+@font-face { font-family: "Montserrat Black"; src: url("/fonts/MontserratBlack.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Montserrat ExtraBold"; src: url("/fonts/MontserratExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Anton"; src: url("/fonts/Anton.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Bebas Neue"; src: url("/fonts/BebasNeue.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Poppins ExtraBold"; src: url("/fonts/PoppinsExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Inter SemiBold"; src: url("/fonts/InterSemiBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Inter ExtraBold"; src: url("/fonts/InterExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Bangers"; src: url("/fonts/Bangers.ttf") format("truetype"); font-display: swap; }
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2e3448 transparent;
+}
+
+@layer components {
+.tabular { font-variant-numeric: tabular-nums; }
+
+.card {
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 10px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  border: 1px solid var(--color-line-2);
+  background: var(--color-panel-3);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.btn:hover { border-color: #3b4260; background: #20263a; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: white; }
+.btn-primary:hover { background: #7c4ff0; border-color: #7c4ff0; }
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost:hover { background: var(--color-panel-3); border-color: var(--color-line); }
+.btn-danger { color: #fca5a5; }
+.btn-good { color: #6ee7b7; }
+
+.input {
+  width: 100%;
+  background: var(--color-panel-2);
+  border: 1px solid var(--color-line-2);
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  outline: none;
+}
+.input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px #8b5cf633; }
+
+.label { font-size: 0.75rem; color: var(--color-ink-2); font-weight: 600; letter-spacing: 0.01em; }
+
+input[type="range"] { accent-color: var(--color-accent); width: 100%; }
+input[type="checkbox"] { accent-color: var(--color-accent); width: 1rem; height: 1rem; }
+}
+
+@keyframes cap-pop {
+  0% { transform: scale(0.8); }
+  55% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes cap-bounce {
+  0% { transform: scale(0.6); }
+  45% { transform: scale(1.18); }
+  75% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@keyframes cap-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.live-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
