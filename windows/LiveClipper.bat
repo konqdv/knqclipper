@@ -178,17 +178,34 @@ function Ensure-Installed {
     return @{ backend = $backend; venvPy = $venvPy; envFile = $envFile }
 }
 
+function Open-App([string]$url) {
+    # Abre en una ventana dedicada (Chrome/Edge --app): se ve como app de escritorio, sin barra del navegador.
+    $exes = @()
+    if ($env:ProgramFiles) { $exes += (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe') }
+    $px86 = ${env:ProgramFiles(x86)}
+    if ($px86) { $exes += (Join-Path $px86 'Google\Chrome\Application\chrome.exe') }
+    if ($env:LOCALAPPDATA) { $exes += (Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application\chrome.exe') }
+    if ($px86) { $exes += (Join-Path $px86 'Microsoft\Edge\Application\msedge.exe') }
+    if ($env:ProgramFiles) { $exes += (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe') }
+    foreach ($exe in $exes) {
+        if (Test-Path $exe) {
+            try { Start-Process -FilePath $exe -ArgumentList "--app=$url", '--window-size=1360,900'; return } catch { }
+        }
+    }
+    Start-Process $url  # alternativa: pestaña del navegador por defecto
+}
+
 function Start-App([hashtable]$p) {
     $clipper = Join-Path $p.backend '.venv\Scripts\clipper.exe'
     if (-not (Test-Path $clipper)) { throw 'No se encontro clipper.exe tras la instalacion.' }
     # already running?
-    try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 'http://127.0.0.1:8000/api/system/status' | Out-Null; Ok 'La app ya estaba abierta.'; Start-Process 'http://localhost:8000'; return } catch { }
+    try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 'http://127.0.0.1:8000/api/system/status' | Out-Null; Ok 'La app ya estaba abierta.'; Open-App 'http://localhost:8000'; return } catch { }
     Say 'Arrancando Live Clipper...'
     Start-Process -FilePath $clipper -ArgumentList 'serve' -WorkingDirectory $p.backend -WindowStyle Minimized
     for ($i = 0; $i -lt 120; $i++) {
         try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 'http://127.0.0.1:8000/api/system/status' | Out-Null; break } catch { Start-Sleep -Seconds 1 }
     }
-    Start-Process 'http://localhost:8000'
+    Open-App 'http://localhost:8000'
     Ok 'Abierto en http://localhost:8000'
 }
 
