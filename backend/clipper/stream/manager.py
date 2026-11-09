@@ -195,7 +195,7 @@ class StreamManager:
     async def _run_vod_once(self, channel_id: int, row: dict, cfg: dict) -> bool:
         """Process a non-live video once (extract clips) and stop monitoring. Returns True when handled."""
         vod_src = ParsedSource("vod", row["url"], "vod", display_name=row["display_name"], url=row["url"])
-        connector = make_connector(vod_src, self.credentials_ctx(), {**cfg, "realtime": False})
+        connector = make_connector(vod_src, self.credentials_ctx(), {**cfg, "realtime": False, "channel_id": channel_id})
         try:
             status = await connector.check_live()
         except Exception as exc:  # noqa: BLE001

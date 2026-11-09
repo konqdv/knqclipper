@@ -24,8 +24,9 @@ export default function LiveStreams({ onAdd }: { onAdd: () => void }) {
 
 function StreamCard({ channel: c }: { channel: Channel }) {
   const qc = useQueryClient();
-  const { sessions, transcripts } = useEvents();
+  const { sessions, transcripts, downloads } = useEvents();
   const ss: SessionSnapshot | null = sessions[c.id] ?? c.session;
+  const dl = downloads[c.id];
   const refresh = () => qc.invalidateQueries({ queryKey: ["channels"] });
   const toggle = useMutation({ mutationFn: () => api.post(`/api/channels/${c.id}/${c.monitoring ? "stop" : "start"}`), onSettled: refresh });
   const check = useMutation({ mutationFn: () => api.post(`/api/channels/${c.id}/check`), onSettled: refresh });
@@ -52,6 +53,15 @@ function StreamCard({ channel: c }: { channel: Channel }) {
           <button className="btn btn-ghost btn-danger p-2" title="Eliminar" onClick={() => confirm(`¿Eliminar ${c.display_name}?`) && del.mutate()}><Trash2 size={16} /></button>
         </div>
       </div>
+
+      {dl && !ss && (
+        <div className="flex items-center gap-3 border-b border-line bg-accent-soft/40 px-5 py-3 text-sm">
+          <Spinner />
+          <span className="whitespace-nowrap text-ink-2">{dl.phase === "merging" ? "Uniendo vídeo…" : "Descargando vídeo…"}</span>
+          <div className="flex-1"><Meter value={dl.pct} /></div>
+          <span className="tabular w-10 text-right text-ink-3">{Math.round(dl.pct)}%</span>
+        </div>
+      )}
 
       <div className="grid gap-5 p-5 md:grid-cols-2">
         <div className="space-y-3 text-sm">

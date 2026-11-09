@@ -6,9 +6,13 @@ Only the *playlist URL* is obtained here; segment download is done by ``capture.
 from __future__ import annotations
 
 import logging
-from typing import Any
+import time
+from pathlib import Path
+from typing import Any, Callable
 
 log = logging.getLogger(__name__)
+
+_DL_EXT = {".mp4", ".mkv", ".webm", ".m4v", ".mov", ".ts", ".flv"}
 
 
 class ResolveError(Exception):
@@ -84,3 +88,69 @@ def ytdlp_hls_url(url: str, max_height: int = 1080, cookies_file: str | None = N
         raise ResolveError("yt-dlp: no muxed HLS formats")
     best = max(fmts, key=lambda f: ((f.get("height") or 0), f.get("tbr") or 0))
     return best["url"]
+
+
+def ytdlp_download(
+    url: str,
+    out_path: str,
+    max_height: int = 1080,
+    cookies_file: str | None = None,
+    progress: Callable[[float, str], None] | None = None,
+) -> str:
+    """Download a VOD/recording (merged audio+video) to a local file and return its path.
+
+    Prefers H.264 + AAC so the file can be stream-copied into MPEG-TS segments without re-encoding.
+    This is the robust path for YouTube/Twitch/Kick VODs, whose media is DASH (video-only URLs) and
+    cannot be handed to FFmpeg as a single muxed URL the way a live HLS playlist can.
+    """
+    import yt_dlp
+
+    stem = Path(out_path).with_suffix("")
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    for old in stem.parent.glob(stem.name + ".*"):  # clear partials from a previous attempt
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    last = {"t": 0.0}
+
+    def _hook(d: dict[str, Any]) -> None:
+        if progress is None:
+            return
+        st = d.get("status")
+        if st == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+            done = d.get("downloaded_bytes") or 0
+            now = time.time()
+            if now - last["t"] >= 1.0:
+                last["t"] = now
+                progress((done / total * 100.0) if total else 0.0, "downloading")
+        elif st == "finished":
+            progress(100.0, "merging")
+
+    opts: dict[str, Any] = {
+        "quiet": True, "no_warnings": True, "noprogress": True, "noplaylist": True,
+        "logger": _QuietLogger(), "progress_hooks": [_hook],
+        "outtmpl": str(stem) + ".%(ext)s",
+        "format": (
+            f"bv*[vcodec^=avc1][height<=?{max_height}]+ba[acodec^=mp4a]/"
+            f"b[vcodec^=avc1][height<=?{max_height}]/"
+            f"bv*[height<=?{max_height}]+ba/b[height<=?{max_height}]/b"
+        ),
+        "merge_output_format": "mp4",
+        "retries": 10, "fragment_retries": 10, "concurrent_fragment_downloads": 4,
+        "overwrites": True,
+    }
+    if cookies_file:
+        opts["cookiefile"] = cookies_file
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        try:
+            ydl.download([url])
+        except Exception as exc:
+            raise ResolveError(f"yt-dlp download: {exc}") from exc
+    produced = [p for p in sorted(stem.parent.glob(stem.name + ".*")) if p.suffix.lower() in _DL_EXT]
+    if not produced:
+        raise ResolveError("yt-dlp download produced no file")
+    # prefer a merged mp4 if several parts linger
+    produced.sort(key=lambda p: (p.suffix.lower() != ".mp4", -p.stat().st_size))
+    return str(produced[0])

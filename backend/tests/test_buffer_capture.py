@@ -201,3 +201,49 @@ async def test_ffmpeg_segmenter_produces_contiguous_segments(tts_video, tmp_path
     for a, b in zip(got, got[1:]):
         assert b.start == pytest.approx(a.end, abs=0.05)
     assert got[-1].end == pytest.approx(sum(s.duration for s in got), abs=0.1)
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg required")
+async def test_vod_downloads_to_local_file_then_segments(tts_video, tmp_path, monkeypatch):
+    """A platform VOD URL must be downloaded to a local file and then segmented.
+
+    Regression: lives produced clips but VODs produced nothing, because a raw DASH URL handed to
+    FFmpeg has no audio / 403s. We now download with yt-dlp first and segment the local file.
+    """
+    import types as _types
+
+    from clipper.capture.base import StreamEnded
+    import clipper.connectors.local as local_mod
+    from clipper.connectors.base import ConnectorContext, ParsedSource
+    from clipper.connectors.local import VodConnector
+
+    seen = {}
+
+    def fake_download(url, out_path, max_height=1080, cookies_file=None, progress=None):
+        seen["url"] = url
+        if progress:
+            progress(10.0, "downloading")
+            progress(100.0, "merging")
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)  # real ytdlp_download does this
+        shutil.copy(tts_video, out_path)  # stand in for the real yt-dlp download
+        return str(out_path)
+
+    monkeypatch.setattr(local_mod, "ytdlp_download", fake_download)
+    ctx = ConnectorContext(settings=_types.SimpleNamespace(youtube_cookies_file=None))
+    url = "https://www.youtube.com/watch?v=abc123"
+    conn = VodConnector(ParsedSource("vod", url, "vod", url=url), ctx, {"realtime": False, "channel_id": 1})
+
+    cap = await conn.open_capture(tmp_path / "buf")
+    assert isinstance(cap, FFmpegSegmenterCapture)
+    assert seen["url"] == url
+    assert Path(cap.input_url).exists()
+    assert cap.reencode is False  # tts_video is H.264/AAC → stream-copy into MPEG-TS
+
+    got: list[Segment] = []
+
+    async def on_seg(s):
+        got.append(s)
+
+    with pytest.raises(StreamEnded):
+        await cap.run(on_seg)
+    assert len(got) >= 2  # VOD actually yields segments to analyse

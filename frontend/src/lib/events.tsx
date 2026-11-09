@@ -14,11 +14,12 @@ interface EventsCtx {
   sessions: Record<number, SessionSnapshot>;
   transcripts: Record<number, { start: number; text: string; speaker: string | null }[]>;
   clipProgress: Record<number, number>;
+  downloads: Record<number, { pct: number; phase: string }>;
   recent: LiveEvent[];
   previewUrls: Record<number, string>;
 }
 
-const Ctx = createContext<EventsCtx>({ connected: false, sessions: {}, transcripts: {}, clipProgress: {}, recent: [], previewUrls: {} });
+const Ctx = createContext<EventsCtx>({ connected: false, sessions: {}, transcripts: {}, clipProgress: {}, downloads: {}, recent: [], previewUrls: {} });
 
 export function useEvents() {
   return useContext(Ctx);
@@ -27,7 +28,7 @@ export function useEvents() {
 /** One WebSocket for the whole app: keeps live session stats and invalidates cached queries on changes. */
 export function EventsProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
-  const [state, setState] = useState<EventsCtx>({ connected: false, sessions: {}, transcripts: {}, clipProgress: {}, recent: [], previewUrls: {} });
+  const [state, setState] = useState<EventsCtx>({ connected: false, sessions: {}, transcripts: {}, clipProgress: {}, downloads: {}, recent: [], previewUrls: {} });
   const retry = useRef(1000);
 
   useEffect(() => {
@@ -57,7 +58,10 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       const d = ev.data;
       switch (ev.type) {
         case "stream.stats":
-          setState((s) => ({ ...s, sessions: { ...s.sessions, [d.channel_id]: d as SessionSnapshot } }));
+          setState((s) => {
+            const { [d.channel_id]: _dl, ...downloads } = s.downloads;
+            return { ...s, downloads, sessions: { ...s.sessions, [d.channel_id]: d as SessionSnapshot } };
+          });
           return;
         case "stream.transcript":
           setState((s) => {
@@ -73,10 +77,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
           setState((s) => ({ ...s, previewUrls: { ...s.previewUrls, [d.clip_id]: d.url } }));
           return;
         case "stream.state":
+          if (d.state === "downloading") {
+            setState((s) => ({ ...s, downloads: { ...s.downloads, [d.channel_id]: { pct: d.pct ?? 0, phase: d.phase ?? "downloading" } } }));
+            return;
+          }
           if (d.state === "ended" || d.state === "error")
             setState((s) => {
-              const { [d.channel_id]: _, ...rest } = s.sessions;
-              return { ...s, sessions: rest };
+              const { [d.channel_id]: _s, ...sessions } = s.sessions;
+              const { [d.channel_id]: _d, ...downloads } = s.downloads;
+              return { ...s, sessions, downloads };
             });
           qc.invalidateQueries({ queryKey: ["channels"] });
           break;
