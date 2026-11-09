@@ -30,7 +30,7 @@ Ejecuta **`windows/Tunel-LiveClipper.bat`** (doble clic). Te pedirá:
 - la **URL pública** (p. ej. `https://clipper.tudominio.com`),
 - el **token** del túnel que copiaste.
 
-El script instala `cloudflared` si falta, guarda la URL pública en tu configuración, genera un **token
+El script descarga `cloudflared` en versión portable (sin instalar nada ni administrador), guarda la URL pública en tu configuración, genera un **token
 de acceso** para que solo entres tú, arranca Live Clipper y levanta el túnel. Deja esa ventana abierta.
 
 La primera vez, al abrir `https://clipper.tudominio` la app te pedirá ese token de acceso una vez
