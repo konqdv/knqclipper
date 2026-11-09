@@ -82,6 +82,9 @@ export default function AddStreamModal({ open, onClose }: { open: boolean; onClo
                 </div>
               ) : r.status.error ? (
                 <div className="flex items-start gap-2 text-sm text-amber-200"><AlertTriangle size={16} className="mt-0.5 shrink-0" />{r.status.error}</div>
+              ) : (r.status as { extra?: { is_vod?: boolean } }).extra?.is_vod ? (
+                <div className="flex items-start gap-2 text-sm text-emerald-300"><CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                  <div>Vídeo (no es un directo): se procesará una vez para extraer clips.{r.status.title ? <> — <span className="text-ink">{r.status.title}</span></> : null}</div></div>
               ) : (
                 <div className="flex items-start gap-2 text-sm text-ink-2"><Info size={16} className="mt-0.5 shrink-0" />
                   No está en directo. Se monitorizará y la captura empezará automáticamente cuando comience la transmisión.</div>

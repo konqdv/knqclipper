@@ -13,9 +13,10 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from clipper import __version__
-from clipper.api import routes_clips, routes_learning, routes_streams, routes_system
+from clipper.api import routes_clips, routes_learning, routes_publish, routes_streams, routes_system
 from clipper.captions.styles import FONTS_DIR
 from clipper.clips.service import render_job
+from clipper.publish.service import publish_job
 from clipper.core.appsettings import store
 from clipper.core.config import Settings, get_settings
 from clipper.core.credentials import CredentialStore, set_credentials
@@ -66,12 +67,13 @@ async def bootstrap(settings: Settings, *, run_workers: bool = True, resume: boo
     set_queue(queue)
     register_handler("render", render_job)
     register_handler("training_analyze", routes_learning.training_analyze_job)
+    register_handler("publish", publish_job)
     manager = StreamManager(settings)
     manager.llm = make_provider(settings)
     set_manager(manager)
     tasks = []
     if run_workers:
-        await queue.start(["render", "training_analyze"], {"render": settings.render_concurrency, "training_analyze": 1})
+        await queue.start(["render", "training_analyze", "publish"], {"render": settings.render_concurrency, "training_analyze": 1, "publish": 2})
         n = await queue.recover()
         if n:
             log.info("recovered %d pending jobs", n)
@@ -114,7 +116,7 @@ def create_app() -> FastAPI:
                 return JSONResponse({"detail": "unauthorized"}, status_code=401)
         return await call_next(request)
 
-    for r in (routes_streams.router, routes_clips.router, routes_learning.router, routes_system.router):
+    for r in (routes_streams.router, routes_clips.router, routes_learning.router, routes_publish.router, routes_system.router):
         app.include_router(r)
     app.mount("/media", StaticFiles(directory=settings.data_dir), name="media")
     app.mount("/fonts", StaticFiles(directory=FONTS_DIR), name="fonts")

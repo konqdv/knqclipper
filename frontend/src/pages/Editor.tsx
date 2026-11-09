@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crop, Film, Loader2, Pause, Play, Save, Scissors, Sparkles, Star, Trash2, Type, WandSparkles } from "lucide-react";
+import { Crop, Film, Loader2, Pause, Play, Save, Scissors, Send, Sparkles, Star, Trash2, Type, WandSparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CaptionOverlay, PRESETS, resolveStyle } from "../components/CaptionOverlay";
+import { PublishModal } from "../components/PublishModal";
 import { FeedbackBar } from "../components/FeedbackBar";
 import { ReframeCanvas } from "../components/ReframeCanvas";
 import { Chip, Empty, Field, Modal, PageHeader, ScoreRing, Spinner, StatusPill, Tabs } from "../components/ui";
@@ -53,6 +54,7 @@ function EditorView({ id }: { id: number }) {
   const [playing, setPlaying] = useState(false);
   const [tab, setTab] = useState<"captions" | "transcript" | "frame" | "extras" | "review">("captions");
   const [showPreview, setShowPreview] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -118,6 +120,7 @@ function EditorView({ id }: { id: number }) {
           <button className="btn btn-primary" onClick={() => renderFinal.mutate()} disabled={renderFinal.isPending || c.status === "rendering"}>
             {c.status === "rendering" || c.status === "queued" ? <><Loader2 size={15} className="animate-spin" /> {Math.round((progress ?? c.progress) * 100)}%</> : <><Film size={15} /> Renderizar final</>}
           </button>
+          <button className="btn" onClick={() => setPublishing(true)} disabled={c.status !== "ready"} title={c.status !== "ready" ? "Renderiza el clip primero" : "Publicar en redes"}><Send size={15} /> Publicar</button>
         </>} />
       {c.error && <div className="mb-4 rounded-lg bg-rose-500/10 p-3 text-xs text-rose-200 ring-1 ring-rose-500/30">{c.error}</div>}
 
@@ -249,6 +252,7 @@ function EditorView({ id }: { id: number }) {
         </div>
       </div>
 
+      {publishing && <PublishModal clip={c} open onClose={() => setPublishing(false)} />}
       <Modal open={showPreview} onClose={() => setShowPreview(false)} title="Vista previa del render (baja resolución)">
         {previewUrls[id] ? <video src={withToken(previewUrls[id])} controls autoPlay className="mx-auto aspect-[9/16] max-h-[70vh] rounded-xl bg-black" />
           : <div className="flex items-center gap-2 text-sm text-ink-2"><Spinner /> Renderizando con FFmpeg + libass…</div>}

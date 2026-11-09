@@ -20,8 +20,10 @@ SETTING_MAP = {
     ("kick", "client_id"): "kick_client_id", ("kick", "client_secret"): "kick_client_secret",
     ("youtube", "api_key"): "youtube_api_key", ("google", "client_id"): "google_client_id",
     ("google", "client_secret"): "google_client_secret", ("llm", "api_key"): "llm_api_key",
+    ("tiktok", "client_key"): "tiktok_client_key", ("tiktok", "client_secret"): "tiktok_client_secret",
+    ("meta", "app_id"): "meta_app_id", ("meta", "app_secret"): "meta_app_secret",
 }
-SECRET_NAMES = {"client_secret", "api_key", "refresh_token", "access_token"}
+SECRET_NAMES = {"client_secret", "api_key", "refresh_token", "access_token", "client_key", "app_secret", "user_token", "page_token"}
 
 
 class CredentialStore:

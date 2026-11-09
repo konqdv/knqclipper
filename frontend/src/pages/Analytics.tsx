@@ -24,7 +24,8 @@ const GROUPS: { key: string; label: string; map?: (g: string) => string }[] = [
   { key: "by_pacing", label: "Ritmo de edición" },
   { key: "by_platform", label: "Plataforma" },
 ];
-const PLAT: Record<string, string> = { tiktok: "TikTok", reels: "Instagram Reels", shorts: "YouTube Shorts" };
+const PLAT: Record<string, string> = { tiktok: "TikTok", reels: "Instagram Reels", feed: "Instagram", shorts: "YouTube Shorts", fb_reels: "Facebook Reels" };
+const PUB_STATUS: Record<string, string> = { queued: "en cola", uploading: "subiendo", published: "publicado", draft: "borrador", failed: "falló", registered: "" };
 
 export default function Analytics() {
   const [tab, setTab] = useState<"social" | "learning">("social");
@@ -71,7 +72,7 @@ function Social() {
               <tbody>{pubs.data.map((p) => (
                 <tr key={p.id} className="border-t border-line/70">
                   <td className="max-w-[220px] truncate px-5 py-2.5">{p.url ? <a href={p.url} target="_blank" rel="noreferrer" className="hover:underline">{p.clip_title}</a> : p.clip_title}</td>
-                  <td className="px-3 text-ink-2">{PLAT[p.platform]}</td>
+                  <td className="px-3 text-ink-2">{PLAT[p.platform] ?? p.platform}{p.status && PUB_STATUS[p.status] ? <span className={`ml-1 text-[10px] ${p.status === "failed" ? "text-rose-300" : p.status === "published" || p.status === "draft" ? "text-emerald-300" : "text-ink-3"}`}>· {PUB_STATUS[p.status]}</span> : null}</td>
                   <td className="tabular px-3 text-right">{compact(p.latest?.views)}</td>
                   <td className="tabular px-3 text-right">{p.latest?.avg_retention != null ? `${p.latest.avg_retention.toFixed(0)}%` : "—"}</td>
                   <td className="tabular px-3 text-right">{p.latest?.completion_rate != null ? `${p.latest.completion_rate.toFixed(0)}%` : "—"}</td>

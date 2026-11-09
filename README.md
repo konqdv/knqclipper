@@ -29,6 +29,10 @@ Documentación técnica:
 - Opcional: GPU NVIDIA con CUDA (ASR float16 + NVENC), Redis (workers independientes),
   PostgreSQL, Ollama u otro proveedor LLM.
 
+## Acceso desde tu subdominio (opcional, gratis)
+
+Para usar la app desde el móvil o cualquier sitio en `https://clipper.tudominio` —y poder publicar en Instagram, que exige URL pública— sin alquilar un servidor: expón tu PC con un **Cloudflare Tunnel**. Guía paso a paso en [`deploy/cloudflare/README.md`](deploy/cloudflare/README.md); en Windows se levanta con `windows/Tunel-LiveClipper.bat`.
+
 ## Windows: instalación con un clic
 
 1. Descarga [`windows/Instalar-LiveClipper.bat`](windows/Instalar-LiveClipper.bat) (botón «Download raw file»).
@@ -91,6 +95,7 @@ workers llegan a la interfaz por Redis pub/sub. Con varias máquinas, usa Postgr
    colores, posición y animación, encuadre (automático, seguir hablante, dividido, completo,
    centro, manual), título inicial y marca de agua, con vista previa en tiempo real y
    previsualización renderizada.
+5. **Publicar en redes**: en un clip renderizado, botón **Publicar** → genera títulos, descripciones y hashtags por red con «Generar textos» (IA o análisis del clip), elige YouTube Shorts (directo), TikTok (borrador), Instagram Reels/Feed y Facebook Reels, y edita el texto de cada red. Conecta las cuentas en Configuración → Publicar en redes. Instagram exige que la app esté en un servidor con URL pública.
 5. **Training Library**: importa clips propios de referencia y califícalos; se analizan con el
    mismo pipeline. **Analytics** registra métricas de TikTok/Reels/Shorts (manual, CSV o YouTube
    Analytics) y muestra qué duraciones, ganchos, categorías y estilos rinden mejor.
@@ -113,7 +118,8 @@ entorno de desarrollo y lo que no:
 | APIs con credenciales (Helix, Kick oficial, YouTube Data/Analytics, Google OAuth) | ⚠️ implementadas, no probadas | No había credenciales; el código sigue la documentación oficial |
 | LLM (compatible OpenAI) | ✅ verificado con modelo local | Qwen2.5-1.5B (GGUF) servido por llama.cpp: el pipeline en vivo analizó el momento con el LLM (qué sucede, por qué interesa, título), con el gancho validado como cita literal; índices inválidos y puntuaciones degeneradas (todo 1,0) se descartan. Ollama y Anthropic usan el mismo contrato pero no se probaron aquí |
 | Aprendizaje | ✅ probado con datos sintéticos en tests | Preferencias por creador separadas (AUC CV > 0,8), validación antes de promover |
-| Pruebas automatizadas | ✅ 53 tests | `cd backend && pytest` |
+| Publicación en redes + generador de textos | ⚠️ implementado, no probado en vivo | Adaptadores YouTube/TikTok/Instagram/Facebook verificados con HTTP simulado; publicación real necesita tus apps + revisión de cada plataforma |
+| Pruebas automatizadas | ✅ 60 tests | `cd backend && pytest` |
 
 ### Limitaciones conocidas y siguientes pasos
 
@@ -132,7 +138,7 @@ entorno de desarrollo y lo que no:
 ## Desarrollo
 
 ```bash
-cd backend && pytest                    # 53 tests (los de ASR usan el modelo tiny si está en caché)
+cd backend && pytest                    # 60 tests (los de ASR usan el modelo tiny si está en caché)
 cd frontend && npx tsc -b && npm run build
 ```
 

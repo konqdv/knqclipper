@@ -154,12 +154,13 @@ async def delete_credential(provider: str, name: str) -> dict[str, Any]:
 
 # --- Google OAuth (YouTube Analytics / live chat of the user's own channel) -------------------------------
 _oauth_states: dict[str, float] = {}
-GOOGLE_SCOPES = "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly"
+GOOGLE_SCOPES = ("https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly "
+                 "https://www.googleapis.com/auth/youtube.upload")
 
 
-def _redirect_uri(request: Request) -> str:
+def _redirect_uri(request: Request, provider: str = "google") -> str:
     base = get_settings().public_base_url or str(request.base_url).rstrip("/")
-    return f"{base.rstrip('/')}/api/oauth/google/callback"
+    return f"{base.rstrip('/')}/api/oauth/{provider}/callback"
 
 
 @router.get("/api/oauth/google/start")
@@ -189,6 +190,95 @@ async def google_callback(request: Request, code: str = "", state: str = "", err
     if tok.get("refresh_token"):
         await get_credentials().set("google", "refresh_token", tok["refresh_token"])
     return HTMLResponse("<h3>Cuenta de Google conectada. Puedes cerrar esta ventana.</h3>")
+
+
+# --- TikTok OAuth (publicar como borrador) ----------------------------------------------------------
+TIKTOK_SCOPES = "user.info.basic,video.upload"
+
+
+@router.get("/api/oauth/tiktok/start")
+async def tiktok_start(request: Request):
+    s = get_settings()
+    if not (s.tiktok_client_key and s.tiktok_client_secret):
+        raise HTTPException(400, "Configura tu app de TikTok primero")
+    state = secrets.token_urlsafe(24)
+    _oauth_states[state] = time.time()
+    q = urlencode({"client_key": s.tiktok_client_key, "redirect_uri": _redirect_uri(request, "tiktok"),
+                   "response_type": "code", "scope": TIKTOK_SCOPES, "state": state})
+    return RedirectResponse(f"https://www.tiktok.com/v2/auth/authorize/?{q}")
+
+
+@router.get("/api/oauth/tiktok/callback")
+async def tiktok_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    if error or not code or _oauth_states.pop(state, 0) < time.time() - 600:
+        return HTMLResponse("<h3>OAuth de TikTok cancelado o caducado.</h3>", status_code=400)
+    s = get_settings()
+    async with httpx.AsyncClient(timeout=20) as c:
+        r = await c.post("https://open.tiktokapis.com/v2/oauth/token/", data={
+            "client_key": s.tiktok_client_key, "client_secret": s.tiktok_client_secret, "code": code,
+            "grant_type": "authorization_code", "redirect_uri": _redirect_uri(request, "tiktok")},
+            headers={"Content-Type": "application/x-www-form-urlencoded"})
+    js = r.json()
+    if r.status_code != 200 or "access_token" not in js:
+        return HTMLResponse(f"<h3>Error de OAuth de TikTok: {js.get('error_description') or r.status_code}</h3>", status_code=400)
+    creds = get_credentials()
+    await creds.set("tiktok", "access_token", js["access_token"])
+    await creds.set("tiktok", "refresh_token", js.get("refresh_token", ""))
+    await creds.set("tiktok", "open_id", js.get("open_id", ""))
+    await creds.set("tiktok", "expires_at", str(time.time() + float(js.get("expires_in", 86400))))
+    return HTMLResponse("<h3>Cuenta de TikTok conectada. Puedes cerrar esta ventana.</h3>")
+
+
+# --- Meta OAuth (Facebook Pages + Instagram) --------------------------------------------------------
+META_SCOPES = ("pages_show_list,pages_manage_posts,pages_read_engagement,business_management,"
+               "instagram_basic,instagram_content_publish")
+META_GRAPH = "https://graph.facebook.com/v21.0"
+
+
+@router.get("/api/oauth/meta/start")
+async def meta_start(request: Request):
+    s = get_settings()
+    if not (s.meta_app_id and s.meta_app_secret):
+        raise HTTPException(400, "Configura tu app de Meta primero")
+    state = secrets.token_urlsafe(24)
+    _oauth_states[state] = time.time()
+    q = urlencode({"client_id": s.meta_app_id, "redirect_uri": _redirect_uri(request, "meta"),
+                   "response_type": "code", "scope": META_SCOPES, "state": state})
+    return RedirectResponse(f"https://www.facebook.com/v21.0/dialog/oauth?{q}")
+
+
+@router.get("/api/oauth/meta/callback")
+async def meta_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    if error or not code or _oauth_states.pop(state, 0) < time.time() - 600:
+        return HTMLResponse("<h3>OAuth de Meta cancelado o caducado.</h3>", status_code=400)
+    s = get_settings()
+    redirect = _redirect_uri(request, "meta")
+    async with httpx.AsyncClient(timeout=20) as c:
+        tok = (await c.get(f"{META_GRAPH}/oauth/access_token", params={
+            "client_id": s.meta_app_id, "client_secret": s.meta_app_secret, "redirect_uri": redirect, "code": code})).json()
+        if "access_token" not in tok:
+            return HTMLResponse(f"<h3>Error de OAuth de Meta: {tok.get('error', {}).get('message')}</h3>", status_code=400)
+        longlived = (await c.get(f"{META_GRAPH}/oauth/access_token", params={
+            "grant_type": "fb_exchange_token", "client_id": s.meta_app_id, "client_secret": s.meta_app_secret,
+            "fb_exchange_token": tok["access_token"]})).json()
+        user_token = longlived.get("access_token", tok["access_token"])
+        pages = (await c.get(f"{META_GRAPH}/me/accounts", params={
+            "fields": "id,name,access_token,instagram_business_account{id,username}", "access_token": user_token})).json()
+    data = pages.get("data") or []
+    if not data:
+        return HTMLResponse("<h3>No se encontró ninguna página de Facebook en tu cuenta. Crea una página y vincula tu Instagram profesional.</h3>", status_code=400)
+    page = next((p for p in data if p.get("instagram_business_account")), data[0])
+    creds = get_credentials()
+    await creds.set("meta", "user_token", user_token)
+    await creds.set("meta", "page_id", str(page["id"]))
+    await creds.set("meta", "page_token", page["access_token"])
+    await creds.set("meta", "page_name", page.get("name", ""))
+    ig = page.get("instagram_business_account")
+    if ig:
+        await creds.set("meta", "ig_user_id", str(ig["id"]))
+        await creds.set("meta", "ig_username", ig.get("username", ""))
+    extra = f" · Instagram @{ig['username']}" if ig and ig.get("username") else " (sin Instagram vinculado)"
+    return HTMLResponse(f"<h3>Conectado: página «{page.get('name')}»{extra}. Puedes cerrar esta ventana.</h3>")
 
 
 # --- Kick official webhooks ---------------------------------------------------------------------------

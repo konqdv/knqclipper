@@ -34,8 +34,25 @@ async def init_db(url: str) -> AsyncEngine:
 
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if url.startswith("sqlite"):
+            await conn.run_sync(_add_missing_columns)
     _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
+
+
+# Additive, dependency-free migrations for existing SQLite databases (no Alembic yet).
+_ADDED_COLUMNS = {
+    "publications": [("status", "VARCHAR(16) DEFAULT 'registered'"), ("error", "TEXT"), ("log", "JSON")],
+}
+
+
+def _add_missing_columns(conn) -> None:  # pragma: no cover - exercised via init_db
+
+    for table, columns in _ADDED_COLUMNS.items():
+        existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()}
+        for name, ddl in columns:
+            if name not in existing:
+                conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
 
 async def close_db() -> None:
