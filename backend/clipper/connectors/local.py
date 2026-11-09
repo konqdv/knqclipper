@@ -12,7 +12,8 @@ from clipper.capture.base import CaptureSource
 from clipper.capture.ffmpeg_segmenter import FFmpegSegmenterCapture
 from clipper.capture.hls import HLSCapture
 from clipper.connectors.base import Capabilities, Connector, LiveStatus, ParsedSource, run_blocking
-from clipper.connectors.resolvers import ResolveError, streamlink_hls_url, ytdlp_info
+from clipper.connectors.resolvers import ResolveError, ytdlp_download, ytdlp_info
+from clipper.core.events import bus
 
 VIDEO_EXT = {".mp4", ".mkv", ".mov", ".webm", ".ts", ".flv", ".m4v", ".avi"}
 
@@ -91,21 +92,37 @@ class VodConnector(Connector):
 
     async def open_capture(self, out_dir: Path) -> CaptureSource:
         url = self.source.url
+        realtime = bool(self.config.get("realtime", False))
         if urlparse(url).path.endswith(".m3u8"):
             async def resolver() -> str:
                 return url
             return HLSCapture(out_dir, resolver)
         if Path(urlparse(url).path).suffix.lower() in VIDEO_EXT:
-            return FFmpegSegmenterCapture(out_dir, url, realtime=bool(self.config.get("realtime", False)))
+            return FFmpegSegmenterCapture(out_dir, url, realtime=realtime)
+        # VOD/recording on a platform (YouTube, Twitch VOD, Kick VOD, ...): download to a local file
+        # first, then segment it. Handing a raw DASH URL to FFmpeg yields video-only (no audio) or 403s,
+        # unlike a live HLS playlist — which is why lives produced clips but VODs did not.
+        cid = self.config.get("channel_id")
+        cookies = getattr(self.ctx.settings, "youtube_cookies_file", None)
+        max_h = int(self.config.get("max_height", 1080) or 1080)
+        dest = out_dir / "_source.mp4"
+
+        def _progress(pct: float, phase: str) -> None:
+            if cid is not None:
+                bus.publish("stream.state", channel_id=cid, state="downloading", pct=round(pct, 1), phase=phase)
+
+        local = await run_blocking(ytdlp_download, url, str(dest), max_h, cookies, _progress)
+        # if the download is not an MPEG-TS-copyable codec (e.g. VP9/AV1/Opus), re-encode while segmenting
+        reencode = False
         try:
-            hls = await run_blocking(streamlink_hls_url, url)
-            return FFmpegSegmenterCapture(out_dir, hls, realtime=bool(self.config.get("realtime", False)))
-        except ResolveError:
-            info = await run_blocking(ytdlp_info, url)
-            media = info.get("url") or (info.get("requested_formats") or [{}])[0].get("url")
-            if not media:
-                raise
-            return FFmpegSegmenterCapture(out_dir, media, realtime=bool(self.config.get("realtime", False)))
+            info = await run_blocking(probe, local)
+            streams = info.get("streams", [])
+            vcodec = next((s.get("codec_name") for s in streams if s.get("codec_type") == "video"), None)
+            acodec = next((s.get("codec_name") for s in streams if s.get("codec_type") == "audio"), None)
+            reencode = vcodec not in ("h264", "hevc") or (acodec is not None and acodec not in ("aac", "mp3"))
+        except Exception:  # noqa: BLE001 — if probing fails, be safe and re-encode
+            reencode = True
+        return FFmpegSegmenterCapture(out_dir, local, realtime=realtime, reencode=reencode)
 
 
 class IngestConnector(Connector):

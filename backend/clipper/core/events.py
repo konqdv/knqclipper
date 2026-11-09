@@ -66,13 +66,19 @@ class EventBus:
         except RuntimeError:
             running = None
         if loop is not None and running is not loop:
-            loop.call_soon_threadsafe(self._deliver, ev)
+            try:
+                loop.call_soon_threadsafe(self._deliver, ev)
+            except RuntimeError:
+                return  # bound loop is closed (shutdown / stale): drop this best-effort event
         else:
             self._deliver(ev)
         target = loop or running
         if self._redis is not None and target is not None:
             payload = json.dumps({"type": ev.type, "data": ev.data, "ts": ev.ts, "origin": self.origin}, default=str)
-            asyncio.run_coroutine_threadsafe(self._redis.publish(REDIS_CHANNEL, payload), target)
+            try:
+                asyncio.run_coroutine_threadsafe(self._redis.publish(REDIS_CHANNEL, payload), target)
+            except RuntimeError:
+                pass  # target loop closed; skip the redis relay for this event
 
     # --- redis relay (optional) ---------------------------------------------------
     async def attach_redis(self, url: str, listen: bool = True) -> None:
