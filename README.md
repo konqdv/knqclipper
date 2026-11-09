@@ -29,6 +29,20 @@ Documentación técnica:
 - Opcional: GPU NVIDIA con CUDA (ASR float16 + NVENC), Redis (workers independientes),
   PostgreSQL, Ollama u otro proveedor LLM.
 
+## Windows: instalación con un clic
+
+1. Descarga [`windows/Instalar-LiveClipper.bat`](windows/Instalar-LiveClipper.bat) (botón «Download raw file»).
+2. Haz doble clic. Si Windows muestra «Windows protegió tu PC», pulsa **Más información → Ejecutar de todas formas**.
+3. El instalador:
+   - instala lo que falte con `winget` (Git, Python 3.12, Node.js LTS y FFmpeg);
+   - descarga el código en `%USERPROFILE%\knqclipper`;
+   - compila la interfaz e instala las dependencias;
+   - descarga el modelo de voz;
+   - crea el acceso directo **Live Clipper** en el escritorio.
+4. Al terminar se abre `http://localhost:8000`. Las siguientes veces basta con el acceso directo; para apagar la app, cierra su ventana.
+
+Volver a ejecutar el instalador actualiza el código. El registro queda en `%TEMP%\knqclipper-install.log`.
+
 ## Instalación y arranque
 
 ```bash
@@ -99,7 +113,7 @@ entorno de desarrollo y lo que no:
 | APIs con credenciales (Helix, Kick oficial, YouTube Data/Analytics, Google OAuth) | ⚠️ implementadas, no probadas | No había credenciales; el código sigue la documentación oficial |
 | LLM (compatible OpenAI) | ✅ verificado con modelo local | Qwen2.5-1.5B (GGUF) servido por llama.cpp: el pipeline en vivo analizó el momento con el LLM (qué sucede, por qué interesa, título), con el gancho validado como cita literal; índices inválidos y puntuaciones degeneradas (todo 1,0) se descartan. Ollama y Anthropic usan el mismo contrato pero no se probaron aquí |
 | Aprendizaje | ✅ probado con datos sintéticos en tests | Preferencias por creador separadas (AUC CV > 0,8), validación antes de promover |
-| Pruebas automatizadas | ✅ 51 tests | `cd backend && pytest` |
+| Pruebas automatizadas | ✅ 53 tests | `cd backend && pytest` |
 
 ### Limitaciones conocidas y siguientes pasos
 
@@ -118,7 +132,7 @@ entorno de desarrollo y lo que no:
 ## Desarrollo
 
 ```bash
-cd backend && pytest                    # 51 tests (los de ASR usan el modelo tiny si está en caché)
+cd backend && pytest                    # 53 tests (los de ASR usan el modelo tiny si está en caché)
 cd frontend && npx tsc -b && npm run build
 ```
 
