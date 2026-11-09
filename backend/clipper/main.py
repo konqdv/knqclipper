@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+mimetypes.add_type("application/manifest+json", ".webmanifest")  # PWA manifest served with the right type
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
