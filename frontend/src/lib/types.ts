@@ -269,10 +269,12 @@ export interface Publication {
   id: number;
   clip_id: number;
   clip_title: string | null;
-  platform: "tiktok" | "reels" | "shorts";
+  platform: string;
   url: string | null;
   posted_at: number | null;
   created_at: number;
+  status?: string;
+  error?: string | null;
   latest: Record<string, number | null> | null;
   history: number;
 }
@@ -285,4 +287,51 @@ export interface InsightRow {
   avg_completion: number | null;
   engagement: number | null;
   performance: number | null;
+}
+
+export interface PublishCapabilities {
+  platform: string;
+  label: string;
+  network: string;
+  official_api: boolean;
+  needs_public_url: boolean;
+  accepts_local_file: boolean;
+  privacy_options: string[];
+  default_privacy: string;
+  requires_review_for_public: boolean;
+  notes: string[];
+}
+
+export interface PublishTarget {
+  platform: string;
+  ready: boolean;
+  missing: string[];
+  capabilities: PublishCapabilities;
+}
+
+export interface PublishTargets {
+  targets: PublishTarget[];
+  accounts: {
+    google: { connected: boolean };
+    tiktok: { connected: boolean; open_id: boolean };
+    meta: { connected: boolean; page: string | null; instagram: string | null };
+  };
+  public_base_url: string | null;
+}
+
+export interface SocialCopy {
+  titles: { text: string; recommended: boolean; reason: string }[];
+  descriptions: Record<string, string[]>;
+  hashtags: Record<string, string[]>;
+  recommendations: {
+    best_title: string;
+    best_description: string;
+    priority_hashtags: string[];
+    best_platform: string;
+    reach_tip: string;
+    hook_phrase: string;
+  };
+  source: "llm" | "heuristic";
+  language: string;
+  notes: string[];
 }

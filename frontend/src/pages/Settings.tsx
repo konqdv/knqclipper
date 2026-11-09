@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, KeyRound, Save, ShieldCheck } from "lucide-react";
+import { CheckCircle2, KeyRound, Link2, Save, Send, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Field, PageHeader, Spinner } from "../components/ui";
 import { api, getToken, setToken } from "../lib/api";
+import type { PublishTargets } from "../lib/types";
 import { CRITERIA_LABELS } from "../lib/format";
 
 type AppSettings = Record<string, Record<string, any>>;
@@ -30,6 +31,7 @@ export default function Settings() {
         <CaptionDefaults app={q.data.app} presets={Object.keys(q.data.captions.presets)} fonts={q.data.captions.fonts} />
         <LLMSection runtime={q.data.runtime} />
         <Credentials publicBase={q.data.runtime.public_base_url} />
+        <PublishAccounts publicBase={q.data.runtime.public_base_url} />
         <ApiToken required={q.data.runtime.api_token_required} />
       </div>
     </div>
@@ -130,6 +132,8 @@ const CRED_LABELS: Record<string, string> = {
   "twitch/client_id": "Twitch Client ID", "twitch/client_secret": "Twitch Client Secret", "kick/client_id": "Kick Client ID", "kick/client_secret": "Kick Client Secret",
   "youtube/api_key": "YouTube Data API key", "google/client_id": "Google OAuth Client ID", "google/client_secret": "Google OAuth Client Secret", "llm/api_key": "API key del proveedor LLM",
   "google/refresh_token": "Cuenta de Google conectada",
+  "tiktok/client_key": "TikTok Client Key", "tiktok/client_secret": "TikTok Client Secret",
+  "meta/app_id": "Meta App ID", "meta/app_secret": "Meta App Secret",
 };
 
 function Credentials({ publicBase }: { publicBase: string | null }) {
@@ -175,6 +179,42 @@ function ApiToken({ required }: { required: boolean }) {
       <p className="text-xs text-ink-3">{required ? "El servidor exige token (CLIPPER_API_TOKEN). Introdúcelo para este navegador." : "El servidor no exige token (escucha solo en local por defecto)."}</p>
       <div className="flex gap-2"><input className="input" type="password" value={t} onChange={(e) => setT(e.target.value)} placeholder="token" />
         <button className="btn" onClick={() => { setToken(t || null); setSaved(true); }}>{saved ? <CheckCircle2 size={15} /> : <Save size={15} />} Guardar</button></div>
+    </section>
+  );
+}
+
+function PublishAccounts({ publicBase }: { publicBase: string | null }) {
+  const qc = useQueryClient();
+  const t = useQuery({ queryKey: ["publish-targets"], queryFn: () => api.get<PublishTargets>("/api/publish/targets"), refetchInterval: 8000 });
+  const disc = useMutation({ mutationFn: (p: string) => api.del(`/api/publish/accounts/${p}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["publish-targets"] }) });
+  const a = t.data?.accounts;
+  const row = (label: string, connected: boolean, detail: string, startPath: string, provider: string) => (
+    <div className="flex items-center gap-2 rounded-lg bg-panel-2 px-3 py-2 ring-1 ring-line">
+      <div className="min-w-0 flex-1"><div className="text-sm font-medium">{label}</div><div className="truncate text-[11px] text-ink-3">{detail}</div></div>
+      {connected ? <>
+        <CheckCircle2 size={15} className="text-emerald-400" />
+        <button className="btn btn-ghost btn-danger px-2 py-1 text-xs" onClick={() => disc.mutate(provider)}><Trash2 size={13} /></button>
+      </> : <a className="btn px-2.5 py-1 text-xs" href={startPath} target="_blank" rel="noreferrer"><Link2 size={13} /> Conectar</a>}
+    </div>
+  );
+  return (
+    <section className="card space-y-3 p-5 xl:col-span-2">
+      <h2 className="flex items-center gap-2 text-sm font-semibold"><Send size={15} /> Publicar en redes</h2>
+      <p className="text-xs text-ink-3">Primero introduce las claves de cada app (arriba, en Credenciales) y luego conecta tu cuenta. Instagram y Facebook usan la misma conexión de Meta.</p>
+      <div className="grid gap-2 md:grid-cols-3">
+        {row("YouTube (Shorts)", !!a?.google.connected, a?.google.connected ? "Conectada (sube a tu canal)" : "Usa la conexión de Google", "/api/oauth/google/start", "google")}
+        {row("TikTok", !!a?.tiktok.connected, a?.tiktok.connected ? "Conectada (sube a borradores)" : "Sube clips como borrador", "/api/oauth/tiktok/start", "tiktok")}
+        {row("Meta (Instagram + Facebook)", !!a?.meta.connected, a?.meta.connected ? `Página ${a?.meta.page ?? ""}${a?.meta.instagram ? " · IG @" + a.meta.instagram : ""}` : "Instagram Reels/Feed y Facebook Reels", "/api/oauth/meta/start", "meta")}
+      </div>
+      <div className="space-y-1 border-t border-line pt-2 text-[11px]">
+        {t.data?.targets.map((x) => (
+          <div key={x.platform} className="flex items-center justify-between">
+            <span className="text-ink-2">{x.capabilities.label}</span>
+            <span className={x.ready ? "text-emerald-300" : "text-amber-300"}>{x.ready ? "listo" : x.missing.join(", ")}</span>
+          </div>
+        ))}
+      </div>
+      {!publicBase && <div className="rounded-lg bg-amber-500/5 p-2.5 text-[11px] text-amber-200 ring-1 ring-amber-500/20">Instagram necesita que la app esté en un servidor con URL pública (CLIPPER_PUBLIC_BASE_URL). En un PC local no estará disponible.</div>}
     </section>
   );
 }

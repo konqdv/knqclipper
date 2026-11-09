@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Film, Pencil, Play, RefreshCcw, Trash2 } from "lucide-react";
+import { Download, Film, Pencil, Play, RefreshCcw, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FeedbackBar } from "../components/FeedbackBar";
+import { PublishModal } from "../components/PublishModal";
 import { Empty, Modal, PageHeader, PlatformBadge, ScoreRing, Spinner, StatusPill } from "../components/ui";
 import { api, qs, withToken } from "../lib/api";
 import { useEvents } from "../lib/events";
@@ -61,6 +62,7 @@ function ClipCard({ c, onPlay }: { c: ClipSummary; onPlay: () => void }) {
   const qc = useQueryClient();
   const { clipProgress } = useEvents();
   const [hover, setHover] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const del = useMutation({ mutationFn: () => api.del(`/api/clips/${c.id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ["clips"] }) });
   const rerender = useMutation({ mutationFn: () => api.post(`/api/clips/${c.id}/render`), onSuccess: () => qc.invalidateQueries({ queryKey: ["clips"] }) });
   const progress = clipProgress[c.id] ?? c.progress;
@@ -95,12 +97,14 @@ function ClipCard({ c, onPlay }: { c: ClipSummary; onPlay: () => void }) {
         </div>
         {c.review !== "unreviewed" && <div className={`text-[11px] font-semibold ${c.review === "approved" ? "text-emerald-300" : "text-rose-300"}`}>{c.review === "approved" ? "Aprobado" : "Rechazado"}</div>}
         <div className="flex gap-1 pt-1">
+          {c.status === "ready" && <button className="btn btn-ghost flex-1 justify-center px-2 py-1.5 text-accent-2" title="Publicar en redes" onClick={() => setPublishing(true)}><Send size={14} /></button>}
           <Link to={`/editor/${c.id}`} className="btn btn-ghost flex-1 justify-center px-2 py-1.5" title="Editar"><Pencil size={14} /></Link>
           {c.video_url && <a href={withToken(`/api/clips/${c.id}/download`)} className="btn btn-ghost flex-1 justify-center px-2 py-1.5" title="Descargar / exportar"><Download size={14} /></a>}
           {(c.status === "failed" || c.status === "draft") && <button className="btn btn-ghost flex-1 justify-center px-2 py-1.5" title="Renderizar" onClick={() => rerender.mutate()}><RefreshCcw size={14} /></button>}
           <button className="btn btn-ghost btn-danger flex-1 justify-center px-2 py-1.5" title="Eliminar" onClick={() => confirm("¿Eliminar este clip?") && del.mutate()}><Trash2 size={14} /></button>
         </div>
       </div>
+      {publishing && <PublishModal clip={c} open onClose={() => setPublishing(false)} />}
     </div>
   );
 }

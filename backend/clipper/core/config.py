@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     google_client_secret: str | None = None
     kick_client_id: str | None = None
     kick_client_secret: str | None = None
+    # --- publishing to social networks (optional) ---
+    tiktok_client_key: str | None = None
+    tiktok_client_secret: str | None = None
+    meta_app_id: str | None = None
+    meta_app_secret: str | None = None
     kick_unofficial_chat: bool = False
     rtmp_port: int = 1935
 

@@ -192,7 +192,7 @@ async def _pub_out(s, p: Publication) -> dict[str, Any]:
     clip = await s.get(Clip, p.clip_id)
     latest = snaps[0] if snaps else None
     return {"id": p.id, "clip_id": p.clip_id, "clip_title": clip.title if clip else None, "platform": p.platform, "url": p.url,
-            "posted_at": p.posted_at, "created_at": p.created_at,
+            "posted_at": p.posted_at, "created_at": p.created_at, "status": getattr(p, "status", "registered"), "error": getattr(p, "error", None),
             "latest": {f: getattr(latest, f) for f in METRIC_FIELDS} | {"captured_at": latest.captured_at, "source": latest.source} if latest else None,
             "history": len(snaps)}
 

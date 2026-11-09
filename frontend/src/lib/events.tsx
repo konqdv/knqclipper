@@ -98,6 +98,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         case "training.analyzing":
           qc.invalidateQueries({ queryKey: ["training"] });
           break;
+        case "publish.queued":
+        case "publish.uploading":
+        case "publish.done":
+        case "publish.failed":
+          qc.invalidateQueries({ queryKey: ["publications"] });
+          break;
         case "learning.trained":
           qc.invalidateQueries({ queryKey: ["models"] });
           break;
