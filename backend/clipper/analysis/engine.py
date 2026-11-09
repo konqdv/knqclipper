@@ -96,6 +96,21 @@ class StreamAnalysis:
     has_asr: bool = True
 
 
+def merge_reasons(old: list[str], new: list[str]) -> list[str]:
+    """Union of reasons; lexical cues ("frase llamativa (a, b)") are collapsed into one line."""
+    plain: list[str] = []
+    lex: list[str] = []
+    for r in old + new:
+        if r.startswith("frase llamativa (") or r.startswith("frases llamativas: "):
+            body = r.split("(", 1)[1].rstrip(")") if r.startswith("frase llamativa (") else r.split(": ", 1)[1]
+            lex += [t.strip() for t in body.split(",") if t.strip()]
+        elif r not in plain:
+            plain.append(r)
+    if lex:
+        plain.append("frases llamativas: " + ", ".join(dict.fromkeys(lex)))
+    return plain
+
+
 def _noisy_or(values: list[tuple[float, float]]) -> float:
     p = 1.0
     for v, w in values:
@@ -125,7 +140,7 @@ class HighlightEngine:
         self.recent: list[dict[str, Any]] = []  # accepted moments for dedup
         self._last_scan = 0.0
         self._last_lex_t = 0.0
-        self._last_classify = 0.0
+        self._last_classify = -20.0  # first classification after ~10 s of content
         self._eval_lock = asyncio.Lock()
         self.stats = {"candidates": 0, "evaluated": 0, "accepted": 0, "duplicates": 0, "discarded": 0, "last_trigger": 0.0}
         self.last_signal: dict[str, float] = {}
@@ -208,14 +223,14 @@ class HighlightEngine:
                 c.t_last = max(c.t_last, t)
                 if strength > c.strength:
                     c.strength, c.peak_t = strength, t
-                c.reasons = list(dict.fromkeys(c.reasons + reasons))
+                c.reasons = merge_reasons(c.reasons, reasons)
                 for k, v in sig.items():
                     c.signals[k] = max(c.signals.get(k, 0.0), v)
                 if kind == "trigger":
                     c.kind = "trigger"
                 return
         pre = float(self.cfg.get("pre_seconds", 45))
-        c = Candidate(t, t, t, kind, strength, list(reasons), dict(sig))
+        c = Candidate(t, t, t, kind, strength, merge_reasons([], reasons), dict(sig))
         c.pin = self.a.buffer.pin(max(0.0, t - pre - 10))
         self.open.append(c)
         self.stats["candidates"] += 1
@@ -325,7 +340,7 @@ class HighlightEngine:
                     "chat": bool(chat and chat.messages), "llm": ctx.source == "llm"}
         ranker = HighlightRanker(rank_cfg)
         rank = ranker.rank(subs, category=category, learned=learned, coverage=coverage, context_confidence=ctx.confidence,
-                           reasons=list(dict.fromkeys(c.reasons + reasons)))
+                           reasons=merge_reasons(c.reasons, reasons))
         moment_types = ctx.moment_types
         silence_ratio = float(np.mean(frames.rms_db < -45)) if len(frames.t) else 0.0
         stats = {

@@ -165,3 +165,22 @@ def test_streaming_asr_on_real_speech(tts_video):
     text = " ".join(w.w for w in tr.words).lower()
     assert "walking" in text and "famous" in text
     assert all(w.s >= 100.0 for w in tr.words) and tr.words == sorted(tr.words, key=lambda w: w.s)
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg required")
+def test_speaker_turns_separate_two_real_voices(tmp_path):
+    from clipper.asr.speakers import SpeakerTracker
+    from clipper.audio.decode import decode_audio
+
+    lines = [("slt", "Welcome back to the show today."), ("rms", "Thanks for having me here."),
+             ("slt", "So what happened at your first job?"), ("rms", "I was working at a small restaurant."),
+             ("rms", "And then the kitchen caught fire."), ("slt", "No way, that is insane.")]
+    tr, got = SpeakerTracker(), []
+    for i, (voice, text) in enumerate(lines):
+        wav = tmp_path / f"l{i}.wav"
+        subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"flite=text='{text}':voice={voice}",
+                        "-ar", "16000", "-ac", "1", str(wav)], check=True)
+        got.append(tr.assign(decode_audio(wav))[0])
+    mapping: dict[str, str] = {}
+    assert all(mapping.setdefault(v, g) == g for (v, _), g in zip(lines, got))
+    assert len(set(got)) == 2

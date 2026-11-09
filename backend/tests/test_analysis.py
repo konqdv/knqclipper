@@ -140,3 +140,10 @@ def test_context_validation_rejects_fabricated_quotes():
 
 time  # noqa: B018
 np  # noqa: B018
+
+
+def test_lexical_reasons_are_collapsed():
+    from clipper.analysis.engine import merge_reasons
+
+    out = merge_reasons(["risas", "frase llamativa (story)"], ["frase llamativa (question, story)", "risas"])
+    assert out == ["risas", "frases llamativas: story, question"]
