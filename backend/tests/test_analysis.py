@@ -147,3 +147,14 @@ def test_lexical_reasons_are_collapsed():
 
     out = merge_reasons(["risas", "frase llamativa (story)"], ["frase llamativa (question, story)", "risas"])
     assert out == ["risas", "frases llamativas: story, question"]
+
+
+def test_uninformative_llm_scores_are_ignored():
+    sents = segment_sentences(make_words(STORY))
+    ca = ContextAnalyzer(None)
+    base = ca.heuristic(sents, 2, 6, emotion=None, chat=None, visual=None, story=None, hook=None, classification=None, reasons=[], lang="en")
+    flat = {k: 1.0 for k in ("hook", "entertainment", "narrative", "emotion", "flow", "shareability")}
+    out = ca._validate({"best_start_sentence": 2, "best_end_sentence": 6, "scores": flat}, base, sents)
+    assert out.llm_scores is None and any("uninformative" in n for n in out.notes)
+    varied = {**flat, "emotion": 0.3}
+    assert ca._validate({"best_start_sentence": 2, "best_end_sentence": 6, "scores": varied}, base, sents).llm_scores == varied

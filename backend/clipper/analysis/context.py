@@ -228,6 +228,10 @@ class ContextAnalyzer:
                 llm_scores[c] = float(min(1.0, max(0.0, float(scores.get(c)))))
             except (TypeError, ValueError):
                 pass
+        if len(llm_scores) >= 4 and max(llm_scores.values()) - min(llm_scores.values()) < 0.05:
+            # e.g. small models answering 1.0 everywhere: carries no information, would only inflate scores
+            notes.append("llm scores uninformative (all equal) → ignored")
+            llm_scores = {}
         pot = js.get("potential") or {}
         types = [t for t in (js.get("moment_types") or []) if isinstance(t, str)][:6] or base.moment_types
         try:

@@ -310,6 +310,11 @@ class HighlightEngine:
                 dur = sentences[ctx.best_end].end - sentences[ctx.best_start].start
                 if min_d * 0.6 <= dur <= max_d:
                     i0, i1 = ctx.best_start, ctx.best_end
+                    se = story.end_index
+                    if (story.score >= 0.5 and se is not None and se > i1
+                            and sentences[se].end - sentences[i0].start <= max_d):
+                        i1 = se  # never let the model cut a story before its resolution
+                        notes.append("llm end extended to the detected story resolution")
                 else:
                     notes.append("llm bounds outside duration limits → heuristic bounds kept")
             start, end = snap_times(words, sentences, i0, i1, reaction_end=reaction_end, window=(w0, w1))

@@ -97,9 +97,9 @@ entorno de desarrollo y lo que no:
 | YouTube | ⚠️ parcial | Detección de directo vía yt-dlp funcionó una vez; después YouTube pidió verificación anti-bot a la IP del servidor (se informa como error, no como «offline»). Usa `CLIPPER_YOUTUBE_API_KEY` |
 | Descarga de vídeo real de las plataformas | ❌ no verificable aquí | La red del entorno bloquea los CDN dinámicos (`*.ttvnw.net`, `*.googlevideo.com`, `*.live-video.net`). Ver [requisitos de red](docs/PLATFORMS.md#requisitos-de-red-del-despliegue) |
 | APIs con credenciales (Helix, Kick oficial, YouTube Data/Analytics, Google OAuth) | ⚠️ implementadas, no probadas | No había credenciales; el código sigue la documentación oficial |
-| LLM (Ollama / compatible OpenAI / Anthropic) | ver nota | La validación anti-invención está probada; la llamada real depende del proveedor configurado |
+| LLM (compatible OpenAI) | ✅ verificado con modelo local | Qwen2.5-1.5B (GGUF) servido por llama.cpp: el pipeline en vivo analizó el momento con el LLM (qué sucede, por qué interesa, título), con el gancho validado como cita literal; índices inválidos y puntuaciones degeneradas (todo 1,0) se descartan. Ollama y Anthropic usan el mismo contrato pero no se probaron aquí |
 | Aprendizaje | ✅ probado con datos sintéticos en tests | Preferencias por creador separadas (AUC CV > 0,8), validación antes de promover |
-| Pruebas automatizadas | ✅ 50 tests | `cd backend && pytest` |
+| Pruebas automatizadas | ✅ 51 tests | `cd backend && pytest` |
 
 ### Limitaciones conocidas y siguientes pasos
 
@@ -118,7 +118,7 @@ entorno de desarrollo y lo que no:
 ## Desarrollo
 
 ```bash
-cd backend && pytest                    # 50 tests (los de ASR usan el modelo tiny si está en caché)
+cd backend && pytest                    # 51 tests (los de ASR usan el modelo tiny si está en caché)
 cd frontend && npx tsc -b && npm run build
 ```
 
