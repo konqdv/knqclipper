@@ -1406,3 +1406,133 @@ async def serve_clip_file(job_id: str, filename: str):
     if not target.exists() or not target.is_file():
         raise HTTPException(404, "文件不存在")
     return FileResponse(target)
+
+
+# ===================================================================
+# Visor en vivo (ver + cortar al instante) — fork multiplataforma
+# ===================================================================
+import time as _time  # noqa: E402
+
+_LIVE: Dict[str, Any] = {"active": False}
+
+
+def _live_workdir() -> Path:
+    d = _output_root() / "live"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _live_current_output() -> Optional[Path]:
+    if not _LIVE.get("active") or not _LIVE.get("stem"):
+        return None
+    from stream_clipper.ingest.web_video import _resolve_live_output
+    return _resolve_live_output(_LIVE["stem"])
+
+
+def _live_stop_internal() -> None:
+    rec = _LIVE.get("recorder")
+    if rec is not None:
+        try:
+            from stream_clipper.ingest.web_video import _graceful_stop_recorder
+            _graceful_stop_recorder(rec)
+        except Exception:
+            pass
+    _LIVE["active"] = False
+
+
+def _live_duration() -> float:
+    out = _live_current_output()
+    if not out or not out.exists():
+        return 0.0
+    from stream_clipper.ingest.local import _probe_duration
+    try:
+        return float(_probe_duration(out))
+    except Exception:
+        return 0.0
+
+
+@router.post("/live/start")
+async def live_start(request: Request):
+    body = await request.json()
+    url = str(body.get("url", "")).strip()
+    if not url:
+        raise HTTPException(400, "Falta la URL del directo")
+    from stream_clipper.ingest.detect import detect_source
+    from stream_clipper.ingest.web_video import _start_live_recording, normalize_web_url
+    det = detect_source(url)
+    _live_stop_internal()
+    norm = normalize_web_url(url)
+    stem = _live_workdir() / f"rec_{_time.strftime('%Y%m%d_%H%M%S')}"
+    try:
+        recorder, _stdout, stderr_log = _start_live_recording(norm, stem)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(400, f"No se pudo iniciar la grabación: {exc}")
+    _LIVE.clear()
+    _LIVE.update({
+        "active": True, "url": norm, "platform": det.get("platform"),
+        "recorder": recorder, "stem": stem, "stderr_log": stderr_log,
+        "started": _time.monotonic(), "clips": [], "seq": 0,
+    })
+    return {"ok": True, "platform": det.get("platform"), "is_live": det.get("is_live")}
+
+
+@router.get("/live/status")
+async def live_status():
+    if not _LIVE.get("active"):
+        return {"active": False, "clips": _LIVE.get("clips", [])}
+    rec = _LIVE.get("recorder")
+    if rec is not None and rec.poll() is not None:
+        _LIVE["active"] = False
+    return {
+        "active": _LIVE.get("active", False),
+        "platform": _LIVE.get("platform"),
+        "recorded_seconds": round(_live_duration(), 1),
+        "clips": _LIVE.get("clips", []),
+    }
+
+
+@router.post("/live/clip")
+async def live_clip(request: Request):
+    if not _LIVE.get("active"):
+        raise HTTPException(400, "No hay ningún directo grabándose")
+    body = await request.json()
+    try:
+        seconds = float(body.get("seconds", 45) or 45)
+    except (TypeError, ValueError):
+        seconds = 45.0
+    seconds = max(5.0, min(600.0, seconds))
+    out = _live_current_output()
+    if out is None or not out.exists():
+        raise HTTPException(400, "Aún no hay grabación disponible (espera unos segundos).")
+    dur = _live_duration()
+    if dur < 5:
+        raise HTTPException(400, "La grabación es demasiado corta todavía (espera unos segundos).")
+    start = max(0.0, dur - seconds)
+    _LIVE["seq"] = int(_LIVE.get("seq", 0)) + 1
+    name = f"corte_{_LIVE['seq']:03d}.mp4"
+    clip_path = _live_workdir() / name
+    try:
+        _cut_clip_h264(out, clip_path, start, dur)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"No se pudo cortar: {exc}")
+    info = {
+        "name": name, "start": round(start, 1), "end": round(dur, 1),
+        "duration": round(dur - start, 1), "url": f"/api/v1/live/clips/{name}",
+    }
+    _LIVE.setdefault("clips", []).insert(0, info)
+    return info
+
+
+@router.get("/live/clips/{name}")
+async def live_clip_file(name: str):
+    safe = Path(name).name
+    p = _live_workdir() / safe
+    if not p.exists() or not p.is_file() or p.parent != _live_workdir():
+        raise HTTPException(404, "Clip no encontrado")
+    return FileResponse(p, media_type="video/mp4", filename=safe)
+
+
+@router.post("/live/stop")
+async def live_stop():
+    _live_stop_internal()
+    return {"ok": True}
