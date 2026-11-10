@@ -16,8 +16,8 @@ export default function DanmakuDensity() {
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <div className="signal-label">互动</div>
-          <h3 className="mt-1 text-base font-semibold text-text-primary">弹幕密度</h3>
+          <div className="signal-label">Interacción</div>
+          <h3 className="mt-1 text-base font-semibold text-text-primary">Densidad de chat</h3>
         </div>
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/8 text-accent">
           <MessageSquare size={15} />
@@ -26,7 +26,7 @@ export default function DanmakuDensity() {
 
       <div className="flex min-h-[220px] flex-1 items-end gap-1 rounded-xl border border-[var(--color-border)] bg-black/20 px-3 py-4">
         {highlights.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-text-muted">暂无数据</div>
+          <div className="flex flex-1 items-center justify-center text-sm text-text-muted">Sin datos</div>
         ) : (
           highlights.map((clip, i) => {
             const densityH = Math.max(10, (clip.danmakuCount / maxDanmaku) * 100);
@@ -37,7 +37,7 @@ export default function DanmakuDensity() {
                 key={clip.id}
                 onClick={() => dispatch({ type: 'SELECT_CLIP', payload: clip.id })}
                 className="group relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-end gap-1"
-                title={`${formatTime(clip.clipStart)} · ${clip.danmakuCount} 条弹幕`}
+                title={`${formatTime(clip.clipStart)} · ${clip.danmakuCount} mensajes`}
               >
                 <div
                   className={`w-full rounded-t-sm transition-opacity ${

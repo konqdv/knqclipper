@@ -2,7 +2,7 @@ import { RotateCcw, Check } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 
 const PHASES = ['import', 'processing', 'review', 'export'];
-const LABELS = { import: '导入', processing: '处理', review: '复核', export: '导出' };
+const LABELS = { import: 'Importar', processing: 'Procesar', review: 'Revisión', export: 'Exportar' };
 
 export default function Header() {
   const { state, dispatch } = useAppStore();
@@ -25,7 +25,7 @@ export default function Header() {
           </div>
           <div>
             <div className="text-sm font-bold text-text-primary tracking-tight">
-              流剪工坊
+              Clipper2
             </div>
             <div className="text-[10px] font-medium text-text-muted tracking-wide font-mono hidden md:block">
               Stream Clipper
@@ -93,7 +93,7 @@ export default function Header() {
               className="btn-secondary inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all"
             >
               <RotateCcw size={12} />
-              <span className="hidden sm:inline">新建</span>
+              <span className="hidden sm:inline">Nuevo</span>
             </button>
           )}
         </div>

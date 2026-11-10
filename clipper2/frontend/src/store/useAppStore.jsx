@@ -264,6 +264,6 @@ export function AppProvider({ children }) {
 
 export function useAppStore() {
   const ctx = useContext(AppContext);
-  if (!ctx) throw new Error('useAppStore 必须在 AppProvider 内使用');
+  if (!ctx) throw new Error('useAppStore debe usarse dentro de AppProvider');
   return ctx;
 }
