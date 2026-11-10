@@ -8,6 +8,7 @@ download/record features don't silently break on extractor changes.
 from __future__ import annotations
 
 import os
+import sys
 import re
 import subprocess
 from functools import lru_cache
@@ -30,7 +31,7 @@ def _version_tuple(raw: str) -> Tuple[int, int, int]:
 def _read_version() -> str:
     try:
         result = subprocess.run(
-            ["yt-dlp", "--version"],
+            [sys.executable, "-m", "yt_dlp", "--version"],
             capture_output=True,
             text=True,
             timeout=6,
