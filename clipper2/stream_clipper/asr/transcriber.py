@@ -85,11 +85,23 @@ def transcribe(
         List of Segment objects sorted by start time.
     """
     if device is None:
-        device = _auto_device()
+        env_dev = os.getenv("WHISPER_DEVICE", "").strip().lower()
+        device = env_dev if env_dev in ("cpu", "cuda") else _auto_device()
     if compute_type is None:
         compute_type = "float16" if device == "cuda" else "int8"
 
-    model = _get_model(model_size, device, compute_type)
+    # Robustness (multi-platform fork): some brand-new GPUs (e.g. RTX 50xx / Blackwell) are not yet
+    # supported by the CUDA libraries faster-whisper ships, and loading on CUDA raises. Fall back to
+    # CPU so transcription always works (the default model is small, so CPU is fast anyway).
+    try:
+        model = _get_model(model_size, device, compute_type)
+    except Exception as exc:  # noqa: BLE001
+        if device == "cuda":
+            console.print(f"[yellow]CUDA no se pudo usar para ASR ({exc}); usando CPU.[/yellow]")
+            device, compute_type = "cpu", "int8"
+            model = _get_model(model_size, device, compute_type)
+        else:
+            raise
     beam_size = _env_int("ASR_BEAM_SIZE", 1, min_value=1)
     vad_min_silence_ms = _env_int("ASR_VAD_MIN_SILENCE_MS", 1000, min_value=100)
 
