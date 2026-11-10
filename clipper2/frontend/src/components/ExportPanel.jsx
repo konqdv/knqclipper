@@ -14,9 +14,12 @@ import { api } from '../hooks/useApi';
 import Toggle from './Toggle';
 
 const PLATFORMS = [
+  { id: 'youtube_shorts', name: 'YouTube Shorts', aspect: '9:16', maxDuration: 60, desc: 'Vertical, máx. 60 s' },
+  { id: 'tiktok', name: 'TikTok', aspect: '9:16', maxDuration: 180, desc: 'Vertical (hasta 3 min)' },
+  { id: 'instagram_reels', name: 'Instagram Reels', aspect: '9:16', maxDuration: 90, desc: 'Vertical, máx. 90 s' },
+  { id: 'facebook_reels', name: 'Facebook Reels', aspect: '9:16', maxDuration: 90, desc: 'Vertical, máx. 90 s' },
+  { id: 'douyin', name: 'Douyin', aspect: '9:16', maxDuration: 60, desc: 'Short vertical' },
   { id: 'bilibili', name: 'Bilibili', aspect: '16:9', maxDuration: 600, desc: 'Vídeo horizontal estándar' },
-  { id: 'tiktok', name: 'Douyin', aspect: '9:16', maxDuration: 60, desc: 'Short vertical' },
-  { id: 'youtube_shorts', name: 'Short de YouTube', aspect: '9:16', maxDuration: 60, desc: 'Vertical, máx. 60 s' },
   { id: 'custom', name: 'Personalizado', aspect: '16:9', maxDuration: null, desc: 'Mantener proporción original' },
 ];
 
