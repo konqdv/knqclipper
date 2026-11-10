@@ -35,20 +35,20 @@ export default function ScoreOverview({ totalClips, selectedCount, totalDuration
     <div className="flex h-full flex-col justify-between">
       <div>
         <div className="mb-5">
-          <div className="signal-label">分析</div>
-          <h3 className="mt-1 text-base font-semibold text-text-primary">评分概览</h3>
+          <div className="signal-label">Análisis</div>
+          <h3 className="mt-1 text-base font-semibold text-text-primary">Resumen de puntuación</h3>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-2.5">
-          <StatCard label="已保留片段" value={`${selectedCount}/${totalClips}`} />
-          <StatCard label="平均分" value={`${avgScore}`} />
-          <StatCard label="总时长" value={`${totalDuration}秒`} />
-          <StatCard label="平均片长" value={`${selectedCount > 0 ? Math.max(1, Math.round(totalDuration / selectedCount)) : 0}秒`} />
+          <StatCard label="Clips conservados" value={`${selectedCount}/${totalClips}`} />
+          <StatCard label="Puntuación media" value={`${avgScore}`} />
+          <StatCard label="Duración total" value={`${totalDuration}s`} />
+          <StatCard label="Duración media" value={`${selectedCount > 0 ? Math.max(1, Math.round(totalDuration / selectedCount)) : 0}s`} />
         </div>
 
         {highlights.length > 0 && (
           <div>
-            <div className="mb-3 signal-label">分布</div>
+            <div className="mb-3 signal-label">Distribución</div>
             <div className="space-y-2.5">
               {SCORE_BANDS.map((band) => {
                 const count = highlights.filter((h) => h.score >= band.min && h.score < band.max).length;
@@ -74,12 +74,12 @@ export default function ScoreOverview({ totalClips, selectedCount, totalDuration
           className="btn-warm flex-1 rounded-xl px-5 py-3 text-sm"
         >
           <Download size={15} />
-          导出
+          Exportar
         </button>
         <button
           onClick={handleRetrain}
           disabled={retraining}
-          title="重新训练反馈模型"
+          title="Reentrenar el modelo de feedback"
           className="btn-secondary rounded-xl px-4"
         >
           <BrainCircuit size={15} className={retraining ? 'animate-pulse' : ''} />

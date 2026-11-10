@@ -23,26 +23,26 @@ export default function ReviewLayout() {
         <section className="surface-panel px-5 py-5 md:px-7 md:py-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <div className="mb-2 signal-label">复核</div>
+              <div className="mb-2 signal-label">Revisión</div>
               <h1 className="text-3xl font-extrabold tracking-tight text-text-primary md:text-4xl">
-                保留最精彩片段，其余内容按需裁剪。
+                Conserva los mejores momentos y recorta el resto.
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-text-secondary">
-                复核界面保持简洁：片段列表 + 预览 + 时间轴，确认后直接导出。
+                Revisión sencilla: lista de clips + vista previa + línea de tiempo; al confirmar, exportas.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <MetricChip label="已选" value={`${selectedCount}/${state.highlights.length || 0}`} />
-              <MetricChip label="总时长" value={`${totalDuration}秒`} />
-              <MetricChip label="平均分" value={`${avgScore}`} />
+              <MetricChip label="Seleccionados" value={`${selectedCount}/${state.highlights.length || 0}`} />
+              <MetricChip label="Duración total" value={`${totalDuration}s`} />
+              <MetricChip label="Puntuación media" value={`${avgScore}`} />
               <button
                 onClick={() => dispatch({ type: 'SET_EXPORT_PLATFORM', payload: 'bilibili' })}
                 disabled={selectedCount === 0}
                 className="btn-warm rounded-xl px-5 py-3 text-sm"
               >
                 <Download size={15} />
-                导出
+                Exportar
               </button>
             </div>
           </div>
@@ -51,7 +51,7 @@ export default function ReviewLayout() {
         <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="space-y-4">
             <section className="surface-panel p-4">
-              <div className="mb-3 text-sm font-semibold text-text-primary">片段列表</div>
+              <div className="mb-3 text-sm font-semibold text-text-primary">Lista de clips</div>
               <div className="max-h-[720px] overflow-y-auto pr-1">
                 <ClipList />
               </div>

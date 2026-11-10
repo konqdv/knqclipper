@@ -15,9 +15,9 @@ import { useAppStore } from '../store/useAppStore';
 import { api } from '../hooks/useApi';
 
 const FEEDBACK_OPTIONS = [
-  { key: 'good', label: '好', icon: ThumbsUp },
-  { key: 'average', label: '一般', icon: Minus },
-  { key: 'bad', label: '差', icon: ThumbsDown },
+  { key: 'good', label: 'Bueno', icon: ThumbsUp },
+  { key: 'average', label: 'Regular', icon: Minus },
+  { key: 'bad', label: 'Malo', icon: ThumbsDown },
 ];
 
 function formatTime(seconds) {
@@ -65,7 +65,7 @@ export default function ClipPreview() {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-text-muted">
         <Play size={36} strokeWidth={1.2} />
-        <p className="text-xs font-medium">请选择一个片段进行复核</p>
+        <p className="text-xs font-medium">Selecciona un clip para revisar</p>
       </div>
     );
   }
@@ -76,20 +76,20 @@ export default function ClipPreview() {
     <div className="flex h-full w-full flex-col gap-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div className="signal-label">预览</div>
+          <div className="signal-label">Vista previa</div>
           <div className="mt-1 text-xl font-bold tracking-tight text-text-primary">
             {formatTime(selectedClip.clipStart)} - {formatTime(selectedClip.clipEnd)}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge label="评分" value={scorePercent} />
-          {selectedClip.contentHook && <Badge label="钩子" value="是" tone="warm" />}
+          <Badge label="Puntuación" value={scorePercent} />
+          {selectedClip.contentHook && <Badge label="Gancho" value="Sí" tone="warm" />}
           <button
             onClick={() => dispatch({ type: 'TOGGLE_CLIP', payload: selectedClip.id })}
             className="btn-secondary rounded-lg px-3.5 py-2 text-sm"
           >
             {selectedClip.selected ? <Check size={14} /> : <Square size={14} />}
-            {selectedClip.selected ? '已选择' : '选择'}
+            {selectedClip.selected ? 'Seleccionado' : 'Seleccionar'}
           </button>
         </div>
       </div>
