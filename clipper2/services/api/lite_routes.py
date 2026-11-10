@@ -301,6 +301,9 @@ def _cut_clip_h264(
         crf,
         "-pix_fmt",
         "yuv420p",
+        # corrige la deriva audio/vídeo de directos grabados por HLS (voz adelantada/atrasada)
+        "-af",
+        "aresample=async=1:first_pts=0",
         "-c:a",
         "aac",
         "-b:a",
