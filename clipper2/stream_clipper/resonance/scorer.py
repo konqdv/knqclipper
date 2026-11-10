@@ -29,6 +29,40 @@ def _normalize_text(s: str) -> str:
     return _WHITESPACE_RE.sub("", (s or "").strip())
 
 
+# Cross-language excitement cues for ASR captions (used when there is no chat).
+_EMPHASIS_RE = re.compile(r"[!¡?¿]")
+_LAUGH_RE = re.compile(
+    r"(?:a*(?:ja|ha|je|he){2,}|ja+j+|lol|lmao|rofl|xd+)", re.IGNORECASE
+)
+_ELONG_RE = re.compile(r"(\w)\1{2,}", re.UNICODE)
+
+
+def _speech_char_count(text: str) -> int:
+    """Non-whitespace character count: works for any language/script."""
+    return len(_WHITESPACE_RE.sub("", text or ""))
+
+
+def _generic_excitement(text: str) -> float:
+    """
+    Language-agnostic excitement cue from a single ASR caption line.
+
+    Looks at exclamation/question marks, laughter ("jaja", "lol"), and
+    elongated words ("goool", "siii"), plus the original keyword lexicon so
+    Chinese content keeps working. Returns a value in [0, 1].
+    """
+    if not text:
+        return 0.0
+    score = 0.0
+    score += min(3, len(_EMPHASIS_RE.findall(text))) / 3.0 * 0.5
+    if _LAUGH_RE.search(text):
+        score += 0.5
+    if _ELONG_RE.search(text):
+        score += 0.3
+    if any(kw in text for kw in EXCITEMENT_KEYWORDS):
+        score += 0.5
+    return min(1.0, score)
+
+
 def _normalize01(arr: np.ndarray) -> np.ndarray:
     if arr.size == 0:
         return arr
@@ -96,7 +130,7 @@ def compute_scores(
         for idx in range(s_start, s_end + 1):
             subtitle_buckets[idx] += seg.text
 
-    if len(comments) == 0 and segments:
+    if len(comments) == 0:
         return _asr_only_scores(n, times, subtitle_buckets, half_buckets, energy_signal)
 
     density_raw = np.zeros(n, dtype=np.float64)
@@ -174,41 +208,48 @@ def _asr_only_scores(
     energy_signal: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Fallback scoring when no danmaku exists.
+    Fallback scoring when there is no danmaku/chat — e.g. live recordings or
+    VODs whose chat could not be captured.
 
-    Uses subtitle density + excitement + sentiment + audio energy.
+    Language-agnostic: combines how much is being said (speech density and its
+    sudden increases), cross-language excitement cues, and audio loudness /
+    dynamics. Every sub-signal is normalized to [0, 1] so the combined score
+    uses the full range.
+
+    (An earlier version only counted CJK characters and Chinese keywords, which
+    left Spanish/English content with a near-flat signal and produced no clips.)
     """
-    asr_char_density = np.zeros(n, dtype=np.float64)
-    asr_excitement = np.zeros(n, dtype=np.float64)
-    asr_sentiment = np.zeros(n, dtype=np.float64)
+    bucket_chars = np.array(
+        [_speech_char_count(t) for t in subtitle_buckets], dtype=np.float64
+    )
+    bucket_excite = np.array(
+        [_generic_excitement(t) for t in subtitle_buckets], dtype=np.float64
+    )
 
-    excitement_flags: list[bool] = [
-        any(kw in text for kw in EXCITEMENT_KEYWORDS)
-        for text in subtitle_buckets
-    ]
-    sentiment_flags: list[float] = []
-    for text in subtitle_buckets:
-        pos_ratio, neg_ratio = sentiment_ratios([text] if text else [])
-        sentiment_flags.append(max(0.0, min(1.0, pos_ratio + neg_ratio)))
-
+    speech_density = np.zeros(n, dtype=np.float64)
+    excitement = np.zeros(n, dtype=np.float64)
     for i in range(n):
         lo = max(0, i - half_buckets)
         hi = min(n, i + half_buckets + 1)
+        speech_density[i] = float(bucket_chars[lo:hi].sum())
+        span = max(1, hi - lo)
+        excitement[i] = float(bucket_excite[lo:hi].sum()) / span
 
-        window_text = "".join(subtitle_buckets[lo:hi])
-        asr_char_density[i] = len(_CJK_RE.findall(window_text))
+    speech_norm = _normalize01(speech_density)
 
-        n_buckets = max(1, hi - lo)
-        excited = sum(excitement_flags[b] for b in range(lo, hi))
-        asr_excitement[i] = excited / n_buckets
-        asr_sentiment[i] = sum(sentiment_flags[b] for b in range(lo, hi)) / n_buckets
+    # Burst: a sudden rise in talking is more interesting than steady chatter.
+    shift = max(1, half_buckets)
+    prev_idx = np.maximum(np.arange(n) - shift, 0)
+    speech_velocity = _normalize01(
+        np.clip(speech_norm - speech_norm[prev_idx], 0.0, None)
+    )
+    excite_norm = _normalize01(excitement)
 
-    asr_char_norm = _normalize01(asr_char_density)
     scores = (
-        0.45 * asr_char_norm
-        + 0.25 * asr_excitement
-        + 0.10 * asr_sentiment
-        + 0.20 * energy_signal
+        0.34 * speech_norm
+        + 0.16 * speech_velocity
+        + 0.18 * excite_norm
+        + 0.32 * energy_signal
     )
     return times, np.clip(scores, 0.0, 1.0)
 

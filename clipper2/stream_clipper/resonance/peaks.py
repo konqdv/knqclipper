@@ -69,6 +69,41 @@ def _adaptive_pads_from_half_peak(
     return pad_before, pad_after
 
 
+def _fallback_peaks(
+    smoothed: np.ndarray,
+    min_distance_samples: int,
+    top_n: int,
+) -> np.ndarray:
+    """
+    Guarantee candidate moments when ``scipy.find_peaks`` returns nothing.
+
+    Greedily picks the highest-scoring samples while keeping them at least
+    ``min_distance_samples`` apart. If the signal is completely flat (no
+    information at all, e.g. silent audio and no captions) the picks are spread
+    evenly across the timeline so the user still gets something to review.
+    """
+    n = len(smoothed)
+    if n == 0 or top_n <= 0:
+        return np.array([], dtype=int)
+
+    value_range = float(smoothed.max() - smoothed.min())
+    if value_range <= 1e-9:
+        k = max(1, min(top_n, max(1, n // max(1, min_distance_samples))))
+        if k == 1:
+            return np.array([n // 2], dtype=int)
+        return np.unique(np.linspace(0, n - 1, num=k).astype(int))
+
+    order = np.argsort(smoothed)[::-1]
+    selected: List[int] = []
+    for idx in order:
+        idx_i = int(idx)
+        if all(abs(idx_i - s) >= min_distance_samples for s in selected):
+            selected.append(idx_i)
+            if len(selected) >= top_n:
+                break
+    return np.array(sorted(selected), dtype=int)
+
+
 def find_highlights(
     times: np.ndarray,
     scores: np.ndarray,
@@ -107,11 +142,15 @@ def find_highlights(
         prominence=0.05,
     )
     if len(peaks) == 0:
-        return []
-
-    peak_scores = smoothed[peaks]
-    order = np.argsort(peak_scores)[::-1]
-    selected_peaks = peaks[order[:top_n]]
+        # No peak cleared the threshold (common for chatless live/VOD content).
+        # Fall back to the best relative maxima so we still return candidates.
+        selected_peaks = _fallback_peaks(smoothed, min_distance_samples, top_n)
+        if len(selected_peaks) == 0:
+            return []
+    else:
+        peak_scores = smoothed[peaks]
+        order = np.argsort(peak_scores)[::-1]
+        selected_peaks = peaks[order[:top_n]]
 
     comment_times = np.array([c.time_offset for c in comments], dtype=np.float64)
 
