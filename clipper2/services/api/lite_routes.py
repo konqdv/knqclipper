@@ -807,6 +807,17 @@ def _run_job(job_id: str) -> None:
         _JOB_SEMAPHORE.release()
 
 
+@router.get("/detect")
+async def detect(url: str = ""):
+    """Multi-platform fork: resolve what a pasted URL is (platform + source_type + live hint).
+
+    Lets the UI show "Twitch · directo" / "Kick · VOD" / "YouTube · vídeo" before submitting,
+    and lets a job be created with source_type="auto".
+    """
+    from stream_clipper.ingest.detect import detect_source
+    return detect_source(url)
+
+
 @router.post("/jobs")
 async def create_job(request: Request):
     ctype = request.headers.get("content-type", "")
@@ -890,8 +901,20 @@ async def create_job(request: Request):
         if "adaptive_max_after" in payload:
             options["adaptive_max_after"] = payload.get("adaptive_max_after")
 
+    # Multi-platform fork: "auto" (or empty) resolves the source_type from the URL
+    # (Twitch / Kick / YouTube — live, VOD and clips — plus Bilibili and local).
+    if source_type in {"auto", ""} and source_url:
+        from stream_clipper.ingest.detect import detect_source
+        det = detect_source(source_url)
+        if det.get("source_type"):
+            source_type = det["source_type"]
+            options["detected_platform"] = det.get("platform")
+            options["detected_is_live"] = det.get("is_live")
+            if det.get("url"):
+                source_url = det["url"]
+
     if source_type not in {"local", "bili_vod", "bili_live", "web_vod", "web_live"}:
-        raise HTTPException(400, "source_type 必须是以下之一：local、bili_vod、bili_live、web_vod、web_live")
+        raise HTTPException(400, "source_type 必须是以下之一：auto、local、bili_vod、bili_live、web_vod、web_live")
     if source_type in {"bili_vod", "bili_live", "web_vod", "web_live"} and not source_url:
         raise HTTPException(400, "外部视频/直播任务必须提供 source_url")
 
