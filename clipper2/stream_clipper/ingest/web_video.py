@@ -8,6 +8,7 @@ non-Bilibili sources (e.g. YouTube, Douyin, Xigua, Weibo, Xiaohongshu).
 from __future__ import annotations
 
 import json
+import sys
 import os
 import re
 import signal
@@ -185,7 +186,7 @@ def _yt_dlp_cmd(
         else str(os.getenv("YTDLP_VIDEO_FORMAT", "") or "").strip() or default_format
     )
     cmd = [
-        "yt-dlp",
+        sys.executable, "-m", "yt_dlp",
         "--format", format_expr,
         "--merge-output-format", "mp4",
         "--output", output_template,
@@ -414,7 +415,7 @@ def _start_live_recording(
     stderr_log = output_stem.with_suffix(".yt-dlp.stderr.log")
     output_tmpl = f"{output_stem}.%(ext)s"
     cmd = [
-        "yt-dlp",
+        sys.executable, "-m", "yt_dlp",
         "--compat-options", "allow-unsafe-ext",
         "--output", output_tmpl,
         "--merge-output-format", "mp4",

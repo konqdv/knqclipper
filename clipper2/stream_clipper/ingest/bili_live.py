@@ -9,6 +9,7 @@ Runs two concurrent tasks:
 from __future__ import annotations
 
 import os
+import sys
 import re
 import signal
 import subprocess
@@ -76,7 +77,7 @@ def _start_recording(url: str, output_stem: Path) -> tuple[subprocess.Popen, Pat
     stderr_log = output_stem.with_suffix(".yt-dlp.stderr.log")
     output_tmpl = f"{output_stem}.%(ext)s"
     cmd = [
-        "yt-dlp",
+        sys.executable, "-m", "yt_dlp",
         "--compat-options",
         "allow-unsafe-ext",
         "--output",

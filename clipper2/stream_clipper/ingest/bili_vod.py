@@ -8,6 +8,7 @@ Downloads both the video (via yt-dlp) and danmaku XML
 from __future__ import annotations
 
 import json
+import sys
 import os
 import re
 import subprocess
@@ -113,7 +114,7 @@ def _yt_dlp_cmd(
         else str(os.getenv("YTDLP_VIDEO_FORMAT", "") or "").strip() or default_format
     )
     cmd = [
-        "yt-dlp",
+        sys.executable, "-m", "yt_dlp",
         "--format", format_expr,
         "--merge-output-format", "mp4",
         "--output", output_template,
