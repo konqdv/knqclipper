@@ -17,12 +17,12 @@ import { api } from '../hooks/useApi';
 import Toggle from './Toggle';
 
 const TABS = [
-  { id: 'upload', icon: Upload, label: '本地上传' },
-  { id: 'url', icon: Link, label: '在线视频' },
-  { id: 'live', icon: Radio, label: '直播录制' },
+  { id: 'upload', icon: Upload, label: 'Archivo' },
+  { id: 'url', icon: Link, label: 'Vídeo online' },
+  { id: 'live', icon: Radio, label: 'Directo' },
 ];
 
-const PARAM_HINT = '大多数场景下，30-60 秒是更实用的默认片段长度，便于复核和导出。';
+const PARAM_HINT = 'En la mayoría de casos, 30–60 s es una duración práctica para revisar y exportar.';
 
 export default function ImportPanel() {
   const { dispatch } = useAppStore();
@@ -126,12 +126,12 @@ export default function ImportPanel() {
     const parsedLiveDuration = Number.parseInt(liveDuration, 10);
 
     if (!Number.isFinite(parsedTopN) || parsedTopN < 1 || parsedTopN > 50) {
-      setError('片段数量必须在 1 到 50 之间。');
+      setError('El número de clips debe estar entre 1 y 50.');
       return;
     }
 
     if (!Number.isFinite(parsedClipDuration) || parsedClipDuration < 5 || parsedClipDuration > 3600) {
-      setError('片段时长必须在 5 到 3600 秒之间。');
+      setError('La duración del clip debe estar entre 5 y 3600 segundos.');
       return;
     }
 
@@ -139,12 +139,12 @@ export default function ImportPanel() {
       activeTab === 'live'
       && (!Number.isFinite(parsedLiveDuration) || parsedLiveDuration < 30 || parsedLiveDuration > 43200)
     ) {
-      setError('直播录制时长必须在 30 到 43200 秒之间。');
+      setError('La duración de grabación del directo debe estar entre 30 y 43200 segundos.');
       return;
     }
 
     if (activeTab !== 'upload' && urlStatus === 'invalid') {
-      setError('链接格式无效，请检查后重试。');
+      setError('El enlace no es válido. Revísalo e inténtalo de nuevo.');
       return;
     }
 
@@ -181,7 +181,7 @@ export default function ImportPanel() {
         const job = await api.createLocalJob(file, options, setUploadProgress);
         dispatch({ type: 'START_JOB', payload: { jobId: job.job_id } });
       } catch (err) {
-        setError(err?.message || '上传失败');
+        setError(err?.message || 'Error al subir el archivo');
       } finally {
         setUploading(false);
       }
@@ -194,7 +194,7 @@ export default function ImportPanel() {
     try {
       const sourceType = resolveSourceType(activeTab, url.trim());
       const job = await api.createJob(sourceType, url.trim(), options);
-      if (!job?.job_id) throw new Error('未返回 job_id');
+      if (!job?.job_id) throw new Error('El servidor no devolvió job_id');
       dispatch({ type: 'START_JOB', payload: { jobId: job.job_id } });
     } catch (err) {
       const detail = String(err?.detail || err?.message || '');
@@ -205,9 +205,9 @@ export default function ImportPanel() {
         && !detail.includes('web_vod')
         && (detail.includes('400') || detail.startsWith('source_type'))
       ) {
-        setError('后端仍在运行旧版 API，请重启后端以启用网页视频/网页直播来源（web_vod / web_live）。');
+        setError('El backend está en una versión antigua. Reinícialo para habilitar vídeo/directo online (web_vod / web_live).');
       } else {
-        setError(err?.message || '任务创建失败');
+        setError(err?.message || 'No se pudo crear la tarea');
       }
     } finally {
       setSubmitting(false);
@@ -227,7 +227,7 @@ export default function ImportPanel() {
         localStorage.setItem('output_dir', selected);
       }
     } catch (err) {
-      setError(err?.message || '无法打开文件夹选择器');
+      setError(err?.message || 'No se pudo abrir el selector de carpeta');
     } finally {
       setSelectingDir(false);
     }
@@ -243,14 +243,14 @@ export default function ImportPanel() {
             <div>
               <div className="mb-3 flex items-center gap-2.5">
                 <div className="h-1.5 w-1.5 rounded-full bg-accent" />
-                <span className="signal-label">新建项目</span>
+                <span className="signal-label">Nuevo proyecto</span>
               </div>
               <h1 className="signal-heading max-w-xl text-4xl md:text-5xl">
-                从文件、视频<br className="hidden md:block" />或直播
-                <span className="text-accent"> 开始剪辑</span>
+                De un archivo, vídeo<br className="hidden md:block" />o directo
+                <span className="text-accent"> a tus clips</span>
               </h1>
               <p className="mt-4 max-w-lg text-sm leading-7 text-text-secondary">
-                选择输入来源，配置参数，一键生成可直接复核的高光片段。
+                Elige la fuente, ajusta los parámetros y genera momentos listos para revisar con un clic.
               </p>
             </div>
             <div className="hidden xl:block">
@@ -316,10 +316,10 @@ export default function ImportPanel() {
                     </div>
                     <div>
                       <div className="text-base font-semibold text-text-primary">
-                        {file ? file.name : '将视频拖拽到这里'}
+                        {file ? file.name : 'Arrastra el vídeo aquí'}
                       </div>
                       <div className="mt-1.5 text-sm text-text-secondary">
-                        {file ? '已就绪 — 点击可替换文件' : '或点击选择 MP4 / MKV / AVI'}
+                        {file ? 'Listo — haz clic para cambiar el archivo' : 'o haz clic para elegir MP4 / MKV / AVI'}
                       </div>
                     </div>
                     {uploading && (
@@ -327,7 +327,7 @@ export default function ImportPanel() {
                         <div className="h-1.5 overflow-hidden rounded-full bg-white/5">
                           <div className="progress-shimmer h-full rounded-full transition-[width] duration-300" style={{ width: `${uploadProgress * 100}%` }} />
                         </div>
-                        <div className="mt-2 font-mono text-xs text-text-muted">上传中 {Math.round(uploadProgress * 100)}%</div>
+                        <div className="mt-2 font-mono text-xs text-text-muted">Subiendo {Math.round(uploadProgress * 100)}%</div>
                       </div>
                     )}
                   </div>
@@ -341,13 +341,13 @@ export default function ImportPanel() {
                       border: `1px solid ${urlFocused ? 'rgba(124, 109, 238, 0.25)' : 'var(--color-border)'}`,
                     }}
                   >
-                    <div className="signal-label mb-3">{activeTab === 'live' ? '直播来源' : '视频来源'}</div>
+                    <div className="signal-label mb-3">{activeTab === 'live' ? 'Fuente de directo' : 'Fuente de vídeo'}</div>
                     <div className="flex items-center gap-3">
                       <input
                         type="text" value={url}
                         onFocus={() => setUrlFocused(true)} onBlur={() => setUrlFocused(false)}
                         onChange={(e) => { setUrl(e.target.value); setError(''); }}
-                        placeholder={activeTab === 'live' ? '粘贴直播链接（B站 / 抖音 / 油管 等）' : '粘贴视频链接（B站 / 油管 / 抖音 / 西瓜 / 微博 / 小红书）'}
+                        placeholder={activeTab === 'live' ? 'Pega el enlace del directo (YouTube · Twitch · Kick · Bilibili…)' : 'Pega el enlace del vídeo (YouTube · Twitch VOD · Kick VOD · Bilibili…)'}
                         className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted font-mono"
                         style={{ caretColor: 'var(--color-accent)' }}
                       />
@@ -380,20 +380,20 @@ export default function ImportPanel() {
 
               {/* Params card */}
               <div className="rounded-2xl border border-[var(--color-border)] bg-black/25 p-5">
-                <div className="mb-5 section-eyebrow">参数配置</div>
+                <div className="mb-5 section-eyebrow">Parámetros</div>
                 <div className={`grid gap-4 ${activeTab === 'live' ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-                  <Field label="片段数" hint={PARAM_HINT}>
+                  <Field label="Nº de clips" hint={PARAM_HINT}>
                     <input type="number" min={1} max={50} value={topN}
                       onChange={(e) => { setTopN(e.target.value); localStorage.setItem('top_n', e.target.value); }}
                       className="bento-input font-mono" />
                   </Field>
-                  <Field label="片段时长（秒）" hint={PARAM_HINT}>
+                  <Field label="Duración del clip (s)" hint={PARAM_HINT}>
                     <input type="number" min={5} max={3600} value={clipDuration}
                       onChange={(e) => { setClipDuration(e.target.value); localStorage.setItem('clip_duration', e.target.value); }}
                       className="bento-input font-mono" />
                   </Field>
                   {activeTab === 'live' && (
-                    <Field label="录制时长（秒）">
+                    <Field label="Grabación (s)">
                       <input type="number" min={30} max={43200} value={liveDuration}
                         onChange={(e) => { setLiveDuration(e.target.value); localStorage.setItem('live_duration', e.target.value); }}
                         className="bento-input font-mono" />
@@ -401,15 +401,15 @@ export default function ImportPanel() {
                   )}
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                  <Field label="输出目录（可选）">
+                  <Field label="Carpeta de salida (opcional)">
                     <input type="text" value={outputDir}
                       onChange={(e) => { setOutputDir(e.target.value); localStorage.setItem('output_dir', e.target.value); }}
-                      placeholder="D:\clips\project-a" className="bento-input font-mono" />
+                      placeholder="D:\clips\proyecto-a" className="bento-input font-mono" />
                   </Field>
                   <button type="button" onClick={handlePickOutputDir} disabled={selectingDir}
                     className={`btn-secondary mt-[26px] rounded-xl px-4 py-3 text-sm ${selectingDir ? 'opacity-60' : ''}`}>
                     {selectingDir ? <Loader2 size={15} className="animate-spin" /> : <FolderOpen size={15} />}
-                    浏览
+                    Examinar
                   </button>
                 </div>
               </div>
@@ -422,8 +422,8 @@ export default function ImportPanel() {
                     <Zap size={15} className="text-warm" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold text-text-primary">极速模式</div>
-                    <div className="mt-0.5 text-xs leading-5 text-text-secondary">轻量排序逻辑，减少精修步骤</div>
+                    <div className="text-sm font-bold text-text-primary">Modo rápido</div>
+                    <div className="mt-0.5 text-xs leading-5 text-text-secondary">Menos pasos de refinado, más velocidad</div>
                   </div>
                   <Toggle checked={speedBoost} onChange={(checked) => { setSpeedBoost(checked); localStorage.setItem('speed_boost', checked ? '1' : '0'); }} />
                 </div>
@@ -438,11 +438,11 @@ export default function ImportPanel() {
                       background: canStart && !uploading && !submitting ? 'var(--color-warm)' : 'var(--color-text-muted)',
                     }}
                   />
-                  {activeTab === 'live' ? '直播模式：先录制，再自动运行高光提取。' : '任务完成后片段直接进入复核工作区。'}
+                  {activeTab === 'live' ? 'Modo directo: primero graba y luego extrae los momentos.' : 'Al terminar, los clips pasan a la zona de revisión.'}
                 </div>
                 <button onClick={handleStart} disabled={!canStart || uploading || submitting}
                   className="btn-warm w-full rounded-xl px-6 py-3.5 text-sm">
-                  {uploading || submitting ? '处理中...' : '生成高光片段'}
+                  {uploading || submitting ? 'Procesando…' : 'Generar momentos'}
                   <ArrowRight size={16} />
                 </button>
               </div>
@@ -556,7 +556,7 @@ function isLikelyLiveInput(raw) {
   if (!text) return false;
   if (isBilibiliLiveInput(text)) return true;
   const host = getHostname(text);
-  return Boolean(host && /live|douyin|youtube|youtu\.be|weibo|xigua|xiaohongshu|xhs|bilibili/.test(host));
+  return Boolean(host && /live|douyin|youtube|youtu\.be|twitch|kick|weibo|xigua|xiaohongshu|xhs|bilibili/.test(host));
 }
 
 function resolveSourceType(activeTab, raw) {
@@ -568,14 +568,14 @@ function resolveSourceType(activeTab, raw) {
 
 function buildGenericPreview(raw, mode) {
   const host = getHostname(raw);
-  const site = host ? host.replace(/^www\./, '') : '在线来源';
+  const site = host ? host.replace(/^www\./, '') : 'fuente online';
   return {
-    title: mode === 'live' ? `直播来源（${site}）` : `视频来源（${site}）`,
+    title: mode === 'live' ? `Directo (${site})` : `Vídeo (${site})`,
     subtitle: raw,
     cover: null,
     meta: mode === 'live'
-      ? '将按当前设置的时长使用 yt-dlp 录制直播。'
-      : '将先通过 yt-dlp 下载视频，再进入剪辑流程。',
+      ? 'Se grabará el directo con yt-dlp según la duración configurada.'
+      : 'Se descargará el vídeo con yt-dlp y luego se procesará.',
   };
 }
 
@@ -583,7 +583,7 @@ async function fetchVodPreview(raw, signal) {
   const bvid = extractBvid(raw);
   if (!bvid) {
     return {
-      title: '哔哩哔哩视频',
+      title: 'Vídeo de Bilibili',
       subtitle: raw,
       cover: null,
       meta: '',
@@ -591,16 +591,16 @@ async function fetchVodPreview(raw, signal) {
   }
 
   const res = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`, { signal });
-  if (!res.ok) throw new Error('预览获取失败');
+  if (!res.ok) throw new Error('No se pudo obtener la vista previa');
   const json = await res.json();
   const d = json?.data;
-  if (!d) throw new Error('预览数据无效');
+  if (!d) throw new Error('Datos de vista previa no válidos');
 
   return {
-    title: d.title || `哔哩哔哩视频 ${bvid}`,
-    subtitle: d.owner?.name ? `UP主：${d.owner.name}` : bvid,
+    title: d.title || `Vídeo de Bilibili ${bvid}`,
+    subtitle: d.owner?.name ? `Autor: ${d.owner.name}` : bvid,
     cover: d.pic || null,
-    meta: d.duration ? `时长 ${formatDuration(d.duration)} - ${bvid}` : bvid,
+    meta: d.duration ? `Duración ${formatDuration(d.duration)} · ${bvid}` : bvid,
   };
 }
 
@@ -608,7 +608,7 @@ async function fetchLivePreview(raw, signal) {
   const roomId = extractRoomId(raw);
   if (!roomId) {
     return {
-      title: '哔哩哔哩直播',
+      title: 'Directo de Bilibili',
       subtitle: raw,
       cover: null,
       meta: '',
@@ -616,16 +616,16 @@ async function fetchLivePreview(raw, signal) {
   }
 
   const res = await fetch(`https://api.live.bilibili.com/room/v1/Room/get_info?room_id=${encodeURIComponent(roomId)}`, { signal });
-  if (!res.ok) throw new Error('预览获取失败');
+  if (!res.ok) throw new Error('No se pudo obtener la vista previa');
   const json = await res.json();
   const d = json?.data;
-  if (!d) throw new Error('预览数据无效');
+  if (!d) throw new Error('Datos de vista previa no válidos');
 
   return {
-    title: d.title || `直播间 ${roomId}`,
-    subtitle: d.uname ? `主播：${d.uname}` : `房间 ${roomId}`,
+    title: d.title || `Sala ${roomId}`,
+    subtitle: d.uname ? `Streamer: ${d.uname}` : `Sala ${roomId}`,
     cover: d.user_cover || d.keyframe || null,
-    meta: d.live_status === 1 ? '正在直播' : '当前未开播',
+    meta: d.live_status === 1 ? 'En directo' : 'Sin emisión ahora',
   };
 }
 
