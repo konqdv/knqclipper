@@ -21,14 +21,14 @@ export default function Header() {
               color: '#fff',
             }}
           >
-            S
+            K
           </div>
           <div>
             <div className="text-sm font-bold text-text-primary tracking-tight">
-              Clipper2
+              KNQclips
             </div>
             <div className="text-[10px] font-medium text-text-muted tracking-wide font-mono hidden md:block">
-              Stream Clipper
+              Clips multiplataforma
             </div>
           </div>
         </div>

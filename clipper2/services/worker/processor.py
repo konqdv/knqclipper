@@ -84,7 +84,7 @@ class ClipWorker:
     STAGES = ["download", "danmaku", "asr", "scoring", "clipping", "upload"]
     MAX_RETRIES = 3
     DEFAULT_CMD_TIMEOUT_SEC = int(os.getenv("WORKER_CMD_TIMEOUT_SEC", "1200"))
-    YTDLP_TIMEOUT_SEC = int(os.getenv("WORKER_YTDLP_TIMEOUT_SEC", "900"))
+    YTDLP_TIMEOUT_SEC = int(os.getenv("WORKER_YTDLP_TIMEOUT_SEC", "5400"))
     FFMPEG_TIMEOUT_SEC = int(os.getenv("WORKER_FFMPEG_TIMEOUT_SEC", "900"))
     FFPROBE_TIMEOUT_SEC = int(os.getenv("WORKER_FFPROBE_TIMEOUT_SEC", "30"))
     CMD_RETRIES = int(os.getenv("WORKER_CMD_RETRIES", "2"))
