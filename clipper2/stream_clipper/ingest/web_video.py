@@ -526,9 +526,18 @@ class WebVodIngest:
             except Exception:
                 pass
 
+        # Multi-platform fork: pull time-stamped chat (YouTube replay / Twitch VOD) so the
+        # danmaku-density scoring works on these sources too. Best-effort — never blocks ingest.
+        comments = []
+        try:
+            from ..danmaku.web_chat import collect_web_comments
+            comments = collect_web_comments(self.url, dest_dir, proxy=self.proxy)
+        except Exception:
+            comments = []
+
         return IngestResult(
             video_path=video_path,
-            comments=[],
+            comments=comments,
             duration=duration,
             title=video_path.stem,
             source_url=self.url,
