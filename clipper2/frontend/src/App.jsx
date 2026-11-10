@@ -3,6 +3,7 @@ import ImportPanel from './components/ImportPanel';
 import ProcessingView from './components/ProcessingView';
 import ReviewLayout from './components/ReviewLayout';
 import ExportPanel from './components/ExportPanel';
+import LiveViewer from './components/LiveViewer';
 import Header from './components/Header';
 
 function AppContent() {
@@ -20,6 +21,7 @@ function AppContent() {
         <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3 md:px-6 md:pb-6">
           <section key={state.phase} className="app-stage min-h-full phase-enter">
             {state.phase === 'import' && <ImportPanel />}
+            {state.phase === 'live' && <LiveViewer />}
             {state.phase === 'processing' && <ProcessingView />}
             {state.phase === 'review' && <ReviewLayout />}
             {state.phase === 'export' && <ExportPanel />}

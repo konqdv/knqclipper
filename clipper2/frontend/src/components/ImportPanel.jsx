@@ -252,6 +252,10 @@ export default function ImportPanel() {
               <p className="mt-4 max-w-lg text-sm leading-7 text-text-secondary">
                 Elige la fuente, ajusta los parámetros y genera momentos listos para revisar con un clic.
               </p>
+              <button type="button" onClick={() => dispatch({ type: 'SET_PHASE', payload: 'live' })}
+                className="btn-secondary mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm">
+                <Radio size={15} className="text-danger" /> ¿Directo ahora? Míralo y corta al instante →
+              </button>
             </div>
             <div className="hidden xl:block">
               <ImportIllustration />
