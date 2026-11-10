@@ -1,6 +1,9 @@
 -r services/requirements.txt
 
 faster-whisper>=1.0.0
+# faster-whisper 1.2.x llama av.open(..., metadata_errors=...); PyAV 14 eliminó ese argumento,
+# y pip instalaba av 19 -> "open() got an unexpected keyword argument 'metadata_errors'". Fijar av<14.
+av>=11,<14
 yt-dlp>=2025.1.15
 ffmpeg-python>=0.2.0
 numpy>=1.26.0
